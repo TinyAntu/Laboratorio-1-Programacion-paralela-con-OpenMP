@@ -1,0 +1,1 @@
+// Trayectorias / snapshots para graficar
