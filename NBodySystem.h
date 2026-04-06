@@ -12,6 +12,7 @@ private:
     std::vector<Particle> bodies; //Contenedor de partículas
     double G_const;
     double softening_eps;
+
 public:
     NBodySystem(double G, double epsilon);
     void addParticle(const Particle& p);
@@ -28,8 +29,14 @@ public:
     void computeAccelerations(int schedule_type);
     void computeAccelerations(int schedule_type, int chunk_size);
     void computeAccelerationsCollapse(); // p.ej. collapse(2) en i,j
+    
     const std::vector<Particle>& getBodies() const;
-    int getCount() const;
+    std::vector<Particle>& getBodies(); // version no const para modificar las partículas
+    
+    // Getters de constantes físicas
+    int getCount() const; 
+    double getG() const;
+    double getSoftening() const;
 };
 
 #endif // NBODYSYSTEM_H

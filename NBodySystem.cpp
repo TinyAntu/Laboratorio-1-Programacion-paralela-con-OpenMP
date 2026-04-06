@@ -53,7 +53,6 @@ void NBodySystem::loadFromSeed(unsigned int seed, int N) {
 
 
 // Guarda las posiciones de las partículas en un archivo de texto, con formato: x1 y1 x2 y2 ... xn yn
-
 //Modo "append" guarda toda la trayectoria "trunc" para un snapshot
 
 void NBodySystem::writePositions(const std::string& filename) {
@@ -73,7 +72,20 @@ const std::vector<Particle>& NBodySystem::getBodies() const {
     return bodies;
 }
 
+std::vector<Particle>& NBodySystem::getBodies() {
+    return bodies;
+}
+
 int NBodySystem::getCount() const {
     return bodies.size();
 }
+
+double NBodySystem::getG() const {
+    return G_const;
+}
+
+double NBodySystem::getSoftening() const {
+    return softening_eps;
+}
+
 
