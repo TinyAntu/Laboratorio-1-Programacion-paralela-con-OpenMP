@@ -17,16 +17,14 @@ void NBodySimulator::integrateEuler() {
 
     // Aplicar los cambios a la velocidad y posición en base al método de Euler (Kick & Drift)
     processBodies();
-
-    calculateEnergy(); // Opcional: calcular energía después de cada paso para monitorear la evolución del sistema
 }
 
-void NBodySimulator::calculateEnergy() {
-    MetricsCalculator calc(system);
-    double K = calc.calculateKineticEnergy();
-    double U = calc.calculatePotentialEnergy();
-    double total_energy = calc.calculateTotalEnergy();
-
+std::pair<double, double> NBodySimulator::calculateEnergy() {
+    MetricsCalculator metrics_calc;
+    const std::vector<Particle>& bodies = system->getBodies();
+    double ke = metrics_calc.calculateKineticEnergy(bodies);
+    double pe = metrics_calc.calculatePotentialEnergy(bodies, system->getG(), system->getSoftening());
+    return {ke, pe}; 
 }
 
 // Procesamiento secuencial de las partículas (Kick & Drift)

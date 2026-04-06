@@ -1,19 +1,16 @@
 #ifndef METRICSCALCULATOR_H
 #define METRICSCALCULATOR_H
 
-#include "NBodySystem.h"
+#include "Particle.h"
+#include <vector>
+#include <cmath>
+
 
 class MetricsCalculator {
-private:
-    NBodySystem* system;
-
 public:
-    MetricsCalculator(NBodySystem* sys);
-
-    // Métodos para el cálculo de energías K y U
-    double calculateKineticEnergy() const;
-    double calculatePotentialEnergy() const;
-    double calculateTotalEnergy() const;
+    double calculateKineticEnergy(const std::vector<Particle>& bodies) const;
+    double calculatePotentialEnergy(const std::vector<Particle>& bodies, double G, double softening) const;
+    double calculateTotalEnergy(const std::vector<Particle>& bodies, double G, double softening) const;
 };
 
-#endif // METRICSCALCULATOR_H
+#endif

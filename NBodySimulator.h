@@ -4,6 +4,7 @@
 
 #include "NBodySystem.h"
 #include "MetricsCalculator.h"
+#include <utility>
 
 class NBodySimulator {
 private:
@@ -18,7 +19,8 @@ public:
     void integrateEuler(int sync_type, bool use_barrier);
 
     // energia y metricas globales
-    void calculateEnergy();
+    //void calculateEnergy();
+    std::pair<double, double> calculateEnergy();
     void calculateEnergy(int method); // reduce=0, atomic=1
     void calculateEnergy(int method, bool use_private);
 
