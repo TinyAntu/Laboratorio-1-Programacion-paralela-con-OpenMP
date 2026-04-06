@@ -2,47 +2,42 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -O3 -fopenmp -std=c++17
 LDFLAGS = -fopenmp
+# Flag -static ayuda a que el .exe encuentre las librerías en Windows
+TEST_LDFLAGS = -lgtest -lgtest_main -lpthread -static
 
-# Nombre del ejecutable
-TARGET = a
+# Nombre del ejecutable principal
+TARGET = nbody_2d.exe
 
-# Lista de archivos fuente
-SOURCES = main.cpp \
-          Particle.cpp \
-          NBodySystem.cpp \
-          NBodySimulator.cpp \
-          MetricsCalculator.cpp \
-          Visualizer.cpp \
-          Integrator.cpp
+# Lista de archivos de lógica (SIN main.cpp)
+SOURCES_LIB = Particle.cpp \
+              NBodySystem.cpp \
+              NBodySimulator.cpp \
+              MetricsCalculator.cpp \
+              Visualizer.cpp \
+              Integrator.cpp \
+              Benchmark.cpp
 
-# Lista de cabeceras (para detectar cambios y recompilar)
+# Lista de cabeceras
 HEADERS = Particle.h \
           NBodySystem.h \
           NBodySimulator.h \
           MetricsCalculator.h \
           Visualizer.h \
-          Integrator.h
+          Integrator.h \
+          Benchmark.h
 
-# Regla principal: Compilar el ejecutable
-$(TARGET): $(SOURCES) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES) $(LDFLAGS)
+# Regla principal: Compilar el simulador
+$(TARGET): main.cpp $(SOURCES_LIB) $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp $(SOURCES_LIB) $(LDFLAGS)
 
-# Limpiar archivos generados
-clean:
-	rm -f $(TARGET) *.o *.dat *.png *.gif 
-
-# Regla para ejecutar un benchmark
-benchmark: $(TARGET)
-	./$(TARGET) -benchmark
-
-# Regla para análisis
-analysis: $(TARGET)
-	./$(TARGET) -analysis
-
-# Regla de prueba
+# Regla de prueba corregida para Windows
 test:
-	@echo "Ejecutando pruebas unitarias..."
-	# $(CXX) $(CXXFLAGS) -o run_tests tests/test_main.cpp $(SOURCES) $(LDFLAGS) -lgtest
-	# ./run_tests
+	@echo "Compilando y ejecutando pruebas unitarias..."
+	$(CXX) $(CXXFLAGS) -o run_tests.exe tests/test_main.cpp tests/test_NBodySystem.cpp $(SOURCES_LIB) $(LDFLAGS) $(TEST_LDFLAGS)
+	./run_tests.exe
+
+# Limpiar archivos generados (Comando del para Windows)
+clean:
+	del /Q $(TARGET) run_tests.exe *.o *.dat *.png 2>nul || exit 0
 
 .PHONY: clean benchmark analysis test
