@@ -30,8 +30,8 @@ public:
     void computeAccelerations(int schedule_type, int chunk_size);
     void computeAccelerationsCollapse(); // p.ej. collapse(2) en i,j
     
-    const std::vector<Particle>& getBodies() const;
-    std::vector<Particle>& getBodies(); // version no const para modificar las partículas
+    const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
+    std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
     
     // Getters de constantes físicas
     int getCount() const; 

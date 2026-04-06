@@ -10,6 +10,7 @@ class NBodySimulator {
 private:
     NBodySystem* system;
     double time_step;
+
 public:
     NBodySimulator(NBodySystem* sys, double dt);
     
@@ -19,8 +20,7 @@ public:
     void integrateEuler(int sync_type, bool use_barrier);
 
     // energia y metricas globales
-    //void calculateEnergy();
-    std::pair<double, double> calculateEnergy();
+    void calculateEnergy();
     void calculateEnergy(int method); // reduce=0, atomic=1
     void calculateEnergy(int method, bool use_private);
 

@@ -19,17 +19,13 @@ void NBodySimulator::integrateEuler() {
     processBodies();
 }
 
-std::pair<double, double> NBodySimulator::calculateEnergy() {
-    MetricsCalculator metrics_calc;
-    const std::vector<Particle>& bodies = system->getBodies();
-    double ke = metrics_calc.calculateKineticEnergy(bodies);
-    double pe = metrics_calc.calculatePotentialEnergy(bodies, system->getG(), system->getSoftening());
-    return {ke, pe}; 
+void NBodySimulator::calculateEnergy() {
 }
+
 
 // Procesamiento secuencial de las partículas (Kick & Drift)
 void NBodySimulator::processBodies() {
-    // Obtenemos la referencia a las partículas
+    // Obtenemos la referencia a las partículas para editar sus estados (posiciones, velocidades, aceleraciones)
     std::vector<Particle>& bodies = system->getBodies(); 
 
     // Actualizamos el estado de cada partícula en base a las aceleraciones calculadas
