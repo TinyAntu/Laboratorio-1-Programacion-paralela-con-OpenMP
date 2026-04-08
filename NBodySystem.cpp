@@ -3,6 +3,9 @@
 #include <random>
 #include <fstream>
 #include <iomanip>
+#include <omp.h>
+#include <vector>
+#include <stdexcept>
 
 NBodySystem::NBodySystem(double G, double epsilon) : G_const(G), softening_eps(epsilon) {}
 
@@ -31,6 +34,146 @@ void NBodySystem::computeAccelerations() {
                 bodies[i].addAcceleration(commonFactor * dx, commonFactor * dy);
             }
         }
+    }
+}
+
+// Sobrecarga con schedule runtime, se setea el tipo de schedule con omp_set_schedule antes del parallel for
+void NBodySystem::computeAccelerations(int schedule_type) {
+    // 0 = static, 1 = dynamic, 2 = guided
+    zeroAccelerations();
+
+    int n = bodies.size();
+    omp_sched_t omp_schedule;
+
+    // Mapear el schedule_type a los valores de OpenMP
+    switch (schedule_type) {
+        case 0:
+            omp_schedule = omp_sched_static;
+            break;
+        case 1:
+            omp_schedule = omp_sched_dynamic;
+            break;
+        case 2:
+            omp_schedule = omp_sched_guided;
+            break;
+        default:
+            throw std::invalid_argument("schedule_type invalido: use 0=static, 1=dynamic, 2=guided");
+    }
+
+    // El chunk_size se ignora en esta version, se usara el valor por defecto del runtime
+    omp_set_schedule(omp_schedule, 0);
+
+    #pragma omp parallel for schedule(runtime) // El runtime usara el schedule previamente seteado
+    for (int i = 0; i < n; ++i) {
+        double ax = 0.0;
+        double ay = 0.0;
+
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue;
+
+            double dx = bodies[j].getX() - bodies[i].getX();
+            double dy = bodies[j].getY() - bodies[i].getY();
+            double distSqr = dx * dx + dy * dy + softening_eps * softening_eps;
+            double invDist3 = 1.0 / (distSqr * std::sqrt(distSqr));
+            double commonFactor = G_const * bodies[j].getMass() * invDist3;
+
+            ax += commonFactor * dx;
+            ay += commonFactor * dy;
+        }
+
+        bodies[i].setAcceleration(ax, ay);
+    }
+}
+
+// Sobrecarga con schedule runtime y chunk_size, se setea el tipo de schedule y el chunk_size con omp_set_schedule antes del parallel for
+void NBodySystem::computeAccelerations(int schedule_type, int chunk_size) {
+    // 0 = static, 1 = dynamic, 2 = guided
+    zeroAccelerations();
+
+    int n = bodies.size();
+    omp_sched_t omp_schedule;
+
+    // Mapear el schedule_type a los valores de OpenMP
+    switch (schedule_type) {
+        case 0:
+            omp_schedule = omp_sched_static;
+            break;
+        case 1:
+            omp_schedule = omp_sched_dynamic;
+            break;
+        case 2:
+            omp_schedule = omp_sched_guided;
+            break;
+        default:
+            throw std::invalid_argument("schedule_type invalido: use 0=static, 1=dynamic, 2=guided");
+    }
+
+    // Validar que chunk_size sea positivo
+    if (chunk_size <= 0) {
+        throw std::invalid_argument("chunk_size debe ser mayor que 0");
+    }
+
+    omp_set_schedule(omp_schedule, chunk_size); // Setear el schedule con el chunk_size especificado
+
+    #pragma omp parallel for schedule(runtime)
+    for (int i = 0; i < n; ++i) {
+        double ax = 0.0;
+        double ay = 0.0;
+
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue;
+
+            double dx = bodies[j].getX() - bodies[i].getX();
+            double dy = bodies[j].getY() - bodies[i].getY();
+            double distSqr = dx * dx + dy * dy + softening_eps * softening_eps;
+            double invDist3 = 1.0 / (distSqr * std::sqrt(distSqr));
+            double commonFactor = G_const * bodies[j].getMass() * invDist3;
+
+            ax += commonFactor * dx;
+            ay += commonFactor * dy;
+        }
+
+        bodies[i].setAcceleration(ax, ay);
+    }
+}
+
+// Implementación con collapse(2) para paralelizar ambos bucles anidados, se deben usar variables privadas para acumular las aceleraciones y luego actualizar las partículas al 
+//final
+void NBodySystem::computeAccelerationsCollapse() {
+
+    // Limpiar aceleraciones previas
+    zeroAccelerations();
+
+    int n = bodies.size();
+    std::vector<double> ax(n, 0.0);
+    std::vector<double> ay(n, 0.0);
+
+    #pragma omp parallel for collapse(2) schedule(static) // Paralelizar ambos bucles anidados con collapse(2). Se usa 2 porque son dos bucles anidados (i,j)
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue;
+
+            double dx = bodies[j].getX() - bodies[i].getX();
+            double dy = bodies[j].getY() - bodies[i].getY();
+            double distSqr = dx * dx + dy * dy + softening_eps * softening_eps;
+            double invDist3 = 1.0 / (distSqr * std::sqrt(distSqr));
+            double commonFactor = G_const * bodies[j].getMass() * invDist3;
+
+            double dax = commonFactor * dx;
+            double day = commonFactor * dy;
+
+            // Acumular las contribuciones a la aceleracion en vectores privados para cada hilo, luego se actualizaran las particulas al final del bucle
+            #pragma omp atomic // Usamos atomic para evitar condiciones de carrera al acumular las aceleraciones en los vectores ax, ay
+            ax[i] += dax;
+
+            #pragma omp atomic 
+            ay[i] += day;
+        }
+    }
+
+    #pragma omp parallel for schedule(static) // Actualizar las aceleraciones de las partículas después de acumularlas en los vectores ax, ay
+    for (int i = 0; i < n; ++i) {
+        bodies[i].setAcceleration(ax[i], ay[i]);
     }
 }
 
@@ -87,5 +230,3 @@ double NBodySystem::getG() const {
 double NBodySystem::getSoftening() const {
     return softening_eps;
 }
-
-

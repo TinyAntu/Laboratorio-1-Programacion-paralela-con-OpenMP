@@ -9,7 +9,9 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
-def plot_trajectories(filename: str = "trayectorias.dat"):
+def plot_trajectories(filename: str = "trayectorias.dat",
+                      output_png: str = "trayectorias_nbody.png",
+                      output_gif: str = "simulacion_nbody.gif"):
     """
     Lee los datos espaciales y genera un gráfico estático y un GIF animado.
     """
@@ -33,7 +35,7 @@ def plot_trajectories(filename: str = "trayectorias.dat"):
         plt.grid(True, linestyle="--", alpha=0.6)
         plt.axis('equal') # Para que el espacio no se vea estirado
         
-        plt.savefig("trayectorias_nbody.png", dpi=300)
+        plt.savefig(output_png, dpi=300)
         plt.close()
 
         # Animación GIF
@@ -73,7 +75,7 @@ def plot_trajectories(filename: str = "trayectorias.dat"):
         frames_to_plot = unique_steps[::step_skip]
 
         anim = FuncAnimation(fig, update, frames=frames_to_plot, interval=50, blit=False)
-        anim.save("simulacion_nbody.gif", writer=PillowWriter(fps=20))
+        anim.save(output_gif, writer=PillowWriter(fps=20))
         plt.close()
 
     except FileNotFoundError:
@@ -81,7 +83,8 @@ def plot_trajectories(filename: str = "trayectorias.dat"):
     except Exception as e:
         print(f"Error al procesar '{filename}': {e}")
 
-def plot_energy_conservation(filename: str = "energia.dat"):
+def plot_energy_conservation(filename: str = "energia.dat",
+                             output_png: str = "energia_nbody.png"):
     """
     Lee los datos de energía y genera un gráfico comprobando la conservación.
     """
@@ -103,7 +106,7 @@ def plot_energy_conservation(filename: str = "energia.dat"):
         plt.grid(True, linestyle="--", alpha=0.6)
         plt.tight_layout()
         
-        plt.savefig('energia_nbody.png', dpi=300)
+        plt.savefig(output_png, dpi=300)
         plt.close()
         
     except FileNotFoundError:
@@ -113,7 +116,56 @@ def plot_energy_conservation(filename: str = "energia.dat"):
 
 if __name__ == "__main__":
     print("--- Iniciando pipeline de visualización ---")
-    plot_trajectories(filename="trayectorias.dat")
+
+    # Versión base
+    plot_trajectories(
+        filename="trayectorias_base.dat",
+        output_png="trayectorias_base.png",
+        output_gif="simulacion_base.gif"
+    )
     print("-" * 30)
-    plot_energy_conservation(filename="energia.dat")
+    plot_energy_conservation(
+        filename="energia_base.dat",
+        output_png="energia_base.png"
+    )
+    print("=" * 50)
+
+    # Versión schedule
+    plot_trajectories(
+        filename="trayectorias_schedule.dat",
+        output_png="trayectorias_schedule.png",
+        output_gif="simulacion_schedule.gif"
+    )
+    print("-" * 30)
+    plot_energy_conservation(
+        filename="energia_schedule.dat",
+        output_png="energia_schedule.png"
+    )
+    print("=" * 50)
+
+    # Versión chunk
+    plot_trajectories(
+        filename="trayectorias_chunk.dat",
+        output_png="trayectorias_chunk.png",
+        output_gif="simulacion_chunk.gif"
+    )
+    print("-" * 30)
+    plot_energy_conservation(
+        filename="energia_chunk.dat",
+        output_png="energia_chunk.png"
+    )
+    print("=" * 50)
+
+    # Versión collapse
+    plot_trajectories(
+        filename="trayectorias_collapse.dat",
+        output_png="trayectorias_collapse.png",
+        output_gif="simulacion_collapse.gif"
+    )
+    print("-" * 30)
+    plot_energy_conservation(
+        filename="energia_collapse.dat",
+        output_png="energia_collapse.png"
+    )
+
     print("--- Proceso finalizado ---")

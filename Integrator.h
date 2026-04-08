@@ -16,6 +16,9 @@ public:
     Integrator(int N, unsigned int seed, double dt, double G, double softening, int steps);
     ~Integrator();
     void runSimulation();
+    void runSimulationSchedule();
+    void runSimulationChunk();
+    void runSimulationCollapse();
     const std::vector<std::vector<Particle>>& getStateHistory() const;
 };
 

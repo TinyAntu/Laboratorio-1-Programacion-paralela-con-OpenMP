@@ -19,6 +19,42 @@ void NBodySimulator::integrateEuler() {
     processBodies();
 }
 
+// Versión que prueba distintos schedules (static/dynamic/guided)
+
+void NBodySimulator::integrateEulerSchedule() {
+    // 0 = static, 1 = dynamic, 2 = guided
+    int schedule_type = 0; 
+
+    system->zeroAccelerations();
+
+    system->computeAccelerations(schedule_type);
+
+    processBodies();
+}
+
+// Versión que además controla chunk_size
+void NBodySimulator::integrateEulerChunk() {
+    // 0 = static, 1 = dynamic, 2 = guided
+    int schedule_type = 1;   
+    int chunk_size = 8;      
+
+    system->zeroAccelerations();
+
+    system->computeAccelerations(schedule_type, chunk_size);
+
+    processBodies();
+}
+
+// Versión usando collapse(2) en el cálculo de aceleraciones
+void NBodySimulator::integrateEulerCollapse() {
+    
+    system->zeroAccelerations();
+
+    system->computeAccelerationsCollapse();
+
+    processBodies();
+}
+
 void NBodySimulator::calculateEnergy() {
 }
 
