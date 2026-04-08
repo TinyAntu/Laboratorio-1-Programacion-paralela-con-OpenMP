@@ -1,5 +1,6 @@
 #include "Integrator.h"
 #include "Visualizer.h"
+#include "MetricsCalculator.h"
 #include <iostream>
 #include <chrono> // para medir el tiempo del OpenMP
 #include <omp.h>
@@ -19,7 +20,6 @@ int main() {
     // Construcción del integrador
     Integrator sim(N, seed, dt, G, softening, total_steps);
 
-    // RELOJ
     std::cout << "Iniciando simulacion N-Body (" << N << " particulas)..." << std::endl;
 
     double start_base = omp_get_wtime();
@@ -29,7 +29,6 @@ int main() {
     std::cout << "Simulacion completada." << std::endl;
     std::cout << "Tiempo runSimulation(): " << (end_base - start_base) << " segundos" << std::endl;
 
-    // ESTO HAY QUE CAMBIAR, Iniciamos el visualizador para obtener graficas de trayectorias y energía
     Visualizer vis("trayectorias_base.dat", "energia_base.dat");
     vis.clearFiles();
     const auto& states = sim.getStateHistory(); // Obtenemos la referencia a la historia de estados del integrador
@@ -37,6 +36,7 @@ int main() {
     //Creamos el archivo de trayectorias
     for (size_t step = 0; step < states.size(); ++step) {
         vis.saveState(step, states[step]);
+        vis.saveEnergy(step, sim.getEnergyHistory()[step].first, sim.getEnergyHistory()[step].second); // Guardamos la energía cinética y potencial del sistema en cada paso
     }
 
     // -------------------------------
@@ -60,6 +60,7 @@ int main() {
 
     for (size_t step = 0; step < statesSchedule.size(); ++step) {
         visSchedule.saveState(step, statesSchedule[step]);
+        visSchedule.saveEnergy(step, simSchedule.getEnergyHistory()[step].first, simSchedule.getEnergyHistory()[step].second); 
     }
 
     // -------------------------------
@@ -83,6 +84,7 @@ int main() {
 
     for (size_t step = 0; step < statesChunk.size(); ++step) {
         visChunk.saveState(step, statesChunk[step]);
+        visChunk.saveEnergy(step, simChunk.getEnergyHistory()[step].first, simChunk.getEnergyHistory()[step].second);
     }
 
     // -------------------------------
@@ -106,6 +108,7 @@ int main() {
 
     for (size_t step = 0; step < statesCollapse.size(); ++step) {
         visCollapse.saveState(step, statesCollapse[step]);
+        visCollapse.saveEnergy(step, simCollapse.getEnergyHistory()[step].first, simCollapse.getEnergyHistory()[step].second);
     }
 
     // Automaticamente se liberan los recursos al salir del main, se invocan los destructores de Integrator y Visualizer

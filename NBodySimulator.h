@@ -10,9 +10,11 @@ class NBodySimulator {
 private:
     NBodySystem* system;
     double time_step;
+    std::pair<double, double> energy_system;        // Para almacenar energía cinética y potencial del sistema
 
 public:
-    NBodySimulator(NBodySystem* sys, double dt);
+    NBodySimulator(int N, unsigned int seed, double G, double softening, double dt);
+    ~NBodySimulator();
     
     // integracion temporal
     void integrateEuler();
@@ -39,6 +41,10 @@ public:
     // Estos pueden ir en el metrics calculator
     void calculateMetricsFirstprivate();
     void calculateFinalStateLastprivate();
+
+    const std::vector<Particle>& getBodies() const { return system->getBodies(); }
+    const NBodySystem* getSystem() const { return system; }
+    const std::pair<double, double>& getSystemEnergy() const { return energy_system; } 
 
 };
 
