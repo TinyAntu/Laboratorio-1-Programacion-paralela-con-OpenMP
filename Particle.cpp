@@ -30,6 +30,13 @@ void Particle::drift(double dt) {
     y += vy * dt;
 }
 
+void Particle::setVx(double vx_) {
+     vx = vx_; 
+    }
+void Particle::setVy(double vy_) {
+     vy = vy_; 
+    }
+
 //Getters 
 
 double Particle::getMass() const {

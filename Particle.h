@@ -14,6 +14,8 @@ public:
     void addAcceleration(double dax, double day);
     void kick(double dt); // v += a*dt actualizar velocidad
     void drift(double dt); // r += v*dt actualizar posicion
+    void setVx(double vx_);
+    void setVy(double vy_);
 
     // getters/setters de estado...
     double getMass() const;
