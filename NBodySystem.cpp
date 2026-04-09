@@ -177,6 +177,60 @@ void NBodySystem::computeAccelerationsCollapse() {
     }
 }
 
+// Implementación con Newton3, cada interacción se calcula una sola vez y se actualizan ambas partículas simultáneamente, se deben usar variables privadas para acumular las aceleraciones y luego actualizar las partículas al final
+// la base de esta implementacion es la tercera ley de Newton: la fuerza que ejerce la partícula i sobre j es igual y opuesta a la fuerza que ejerce j sobre i, por lo que solo calculamos la interacción una vez y actualizamos ambas partículas simultáneamente
+void NBodySystem::computeAccelerationsNewton3() {
+    zeroAccelerations();
+    int n = bodies.size();
+    
+    std::vector<double> ax_global(n, 0.0);
+    std::vector<double> ay_global(n, 0.0);
+
+    #pragma omp parallel
+    {
+        std::vector<double> ax_local(n, 0.0);
+        std::vector<double> ay_local(n, 0.0);
+
+
+        #pragma omp for schedule(dynamic, 10) 
+        for (int i = 0; i < n; ++i) {
+            for (int j = i + 1; j < n; ++j) {
+                
+                double dx = bodies[j].getX() - bodies[i].getX();
+                double dy = bodies[j].getY() - bodies[i].getY();
+                double distSqr = dx * dx + dy * dy + softening_eps * softening_eps;
+                double invDist3 = 1.0 / (distSqr * std::sqrt(distSqr));
+                
+                double factor_i = G_const * bodies[j].getMass() * invDist3;
+                double factor_j = G_const * bodies[i].getMass() * invDist3;
+
+
+                ax_local[i] += factor_i * dx;
+                ay_local[i] += factor_i * dy;
+
+                // Restamos a 'j' (dirección opuesta)
+                ax_local[j] -= factor_j * dx;
+                ay_local[j] -= factor_j * dy;
+            }
+        }
+
+        // Una vez que el hilo termina todos sus cálculos, suma su 
+        // resultado privado al acumulador global de forma segura.
+        #pragma omp critical
+        {
+            for (int k = 0; k < n; ++k) {
+                ax_global[k] += ax_local[k];
+                ay_global[k] += ay_local[k];
+            }
+        }
+    }
+
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < n; ++i) {
+        bodies[i].setAcceleration(ax_global[i], ay_global[i]);
+    }
+}
+
 //Para realizar la reproducidad de los experimentos
 //Genera N partículas con posiciones y masas aleatorias a partir de una semilla dada 
 void NBodySystem::loadFromSeed(unsigned int seed, int N) {

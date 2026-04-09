@@ -29,6 +29,7 @@ public:
     void computeAccelerations(int schedule_type);
     void computeAccelerations(int schedule_type, int chunk_size);
     void computeAccelerationsCollapse(); // p.ej. collapse(2) en i,j
+    void computeAccelerationsNewton3(); // Implementación con tercera ley de Newton
     
     const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas

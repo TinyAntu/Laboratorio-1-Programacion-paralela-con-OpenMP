@@ -167,5 +167,18 @@ if __name__ == "__main__":
         filename="energia_collapse.dat",
         output_png="energia_collapse.png"
     )
+    #version newton3
+    print("=" * 50)
+    plot_trajectories(
+        filename="trayectorias_newton3.dat",
+        output_png="trayectorias_newton3.png",
+        output_gif="simulacion_newton3.gif"
+    )
+    print("-" * 30)
+    plot_energy_conservation(
+        filename="energia_newton3.dat",
+        output_png="energia_newton3.png"
+    )
+    
 
     print("--- Proceso finalizado ---")

@@ -71,6 +71,17 @@ void NBodySimulator::integrateEulerCollapse() {
     calculateEnergy();
 }
 
+void NBodySimulator::integrateEulerNewton3() {
+    
+    system->zeroAccelerations();
+
+    system->computeAccelerationsNewton3();
+
+    processBodies();
+
+    calculateEnergy();
+}
+
 // Implementación secuencial
 void NBodySimulator::calculateEnergy() {
     const auto& bodies = system->getBodies();

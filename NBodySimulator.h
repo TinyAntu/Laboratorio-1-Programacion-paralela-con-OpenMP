@@ -21,6 +21,7 @@ public:
     void integrateEulerSchedule();
     void integrateEulerChunk();
     void integrateEulerCollapse();
+    void integrateEulerNewton3();
     void integrateEuler(int sync_type); // 0=atomic, 1=critical, 2=nowait,→ (convenci ́on del enunciado)
     void integrateEuler(int sync_type, bool use_barrier);
 

@@ -19,6 +19,7 @@ public:
     void runSimulationSchedule();
     void runSimulationChunk();
     void runSimulationCollapse();
+    void runSimulationNewton3();
 
     const std::vector<std::vector<Particle>>& getStateHistory() const;
     const NBodySimulator* getSimulator() const;

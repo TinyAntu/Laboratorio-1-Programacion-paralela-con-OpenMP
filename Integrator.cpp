@@ -65,6 +65,19 @@ void Integrator::runSimulationCollapse() {
     }
 }
 
+void Integrator::runSimulationNewton3() {
+    
+    state_history.push_back(simulator->getBodies());
+
+    for (int step = 0; step <= total_steps; ++step) {
+        // Integración usando la variante con Newton3
+        simulator->integrateEulerNewton3();
+
+        state_history.push_back(simulator->getBodies());
+        energy_history.push_back(simulator->getSystemEnergy());
+    }
+}
+
 const NBodySimulator* Integrator::getSimulator() const {
     return simulator;
 }

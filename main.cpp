@@ -111,6 +111,31 @@ int main() {
         visCollapse.saveEnergy(step, simCollapse.getEnergyHistory()[step].first, simCollapse.getEnergyHistory()[step].second);
     }
 
+    // -------------------------------
+    // VERSION NEWTON3
+    // -------------------------------
+    Integrator simNewton3(N, seed, dt, G, softening, total_steps);
+
+    std::cout << "\nIniciando simulacion runSimulationNewton3()..." << std::endl;
+
+    double start_newton3 = omp_get_wtime();
+    simNewton3.runSimulationNewton3();
+    double end_newton3 = omp_get_wtime();
+
+    std::cout << "Simulacion Newton3 completada." << std::endl;
+    std::cout << "Tiempo runSimulationNewton3(): " 
+              << (end_newton3 - start_newton3) << " segundos" << std::endl;
+
+    Visualizer visNewton3("trayectorias_newton3.dat", "energia_newton3.dat");
+    visNewton3.clearFiles();
+    const auto& statesNewton3 = simNewton3.getStateHistory();
+
+    for (size_t step = 0; step < statesNewton3.size(); ++step) {
+        visNewton3.saveState(step, statesNewton3[step]);
+        visNewton3.saveEnergy(step, simNewton3.getEnergyHistory()[step].first, simNewton3.getEnergyHistory()[step].second);
+    }
+
+
     // Automaticamente se liberan los recursos al salir del main, se invocan los destructores de Integrator y Visualizer
     return 0;
 }
