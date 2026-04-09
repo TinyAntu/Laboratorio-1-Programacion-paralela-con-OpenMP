@@ -31,13 +31,23 @@ $(TARGET): main.cpp $(SOURCES_LIB) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp $(SOURCES_LIB) $(LDFLAGS)
 
 # Regla de prueba corregida para Windows
+
 test:
 	@echo "Compilando y ejecutando pruebas unitarias..."
+	$(CXX) $(CXXFLAGS) -I. -o tests/test_metrics.exe \
+		tests/test_metrics.cpp Particle.cpp MetricsCalculator.cpp $(LDFLAGS)
+	./tests/test_metrics.exe
 	$(CXX) $(CXXFLAGS) -o run_tests.exe tests/test_main.cpp tests/test_NBodySystem.cpp $(SOURCES_LIB) $(LDFLAGS) $(TEST_LDFLAGS)
 	./run_tests.exe
 
-# Limpiar archivos generados (Comando del para Windows)
-clean:
-	del /Q $(TARGET) run_tests.exe *.o *.dat *.png 2>nul || exit 0
+test_metrics:
+	$(CXX) $(CXXFLAGS) -I. -o tests/test_metrics.exe \
+		tests/test_metrics.cpp Particle.cpp MetricsCalculator.cpp $(LDFLAGS)
+	./tests/test_metrics.exe
 
-.PHONY: clean benchmark analysis test
+# Limpiar archivos generados (Comando del para Windows)
+
+clean:
+	del /Q $(TARGET) run_tests.exe tests\test_metrics.exe *.o *.dat *.png 2>nul || exit 0
+
+.PHONY: clean benchmark analysis test test_metrics
