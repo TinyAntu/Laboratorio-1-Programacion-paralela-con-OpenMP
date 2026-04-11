@@ -105,3 +105,40 @@ void NBodySimulator::processBodies() {
         body.drift(time_step); // Actualiza posición (r += v*dt)
     }
 }
+
+//Procesamiento task, parallel_for
+
+void NBodySimulator::processBodies(int task_type){
+    std::vector<Particle>& bodies = system->getBodies();  
+
+    if (task_type == 0) {
+        // Implemtación usando task
+        #pragma omp parallel
+        {
+            #pragma omp single
+            {
+                for (size_t i = 0; i < bodies.size(); ++i) {
+                    #pragma omp task firstprivate(i) // Kick y Drift necesitan la copia privada para trabajar la misma particula
+                    {
+                        bodies[i].kick(time_step);
+                        bodies[i].drift(time_step);
+                    }
+                }
+            }
+        }
+    } else if (task_type == 1) {
+        // Implementación usando parallel for
+        #pragma omp parallel for
+        for (size_t i = 0; i < bodies.size(); ++i) {
+            bodies[i].kick(time_step);
+            bodies[i].drift(time_step);
+        }
+    }
+}
+
+NBodySystem& NBodySimulator::getSystem() {
+    return *system;
+}
+
+
+

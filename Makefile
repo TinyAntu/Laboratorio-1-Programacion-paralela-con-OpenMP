@@ -37,8 +37,11 @@ test:
 	$(CXX) $(CXXFLAGS) -I. -o tests/test_metrics.exe \
 		tests/test_metrics.cpp Particle.cpp MetricsCalculator.cpp $(LDFLAGS)
 	./tests/test_metrics.exe
-	$(CXX) $(CXXFLAGS) -o run_tests.exe tests/test_main.cpp tests/test_NBodySystem.cpp $(SOURCES_LIB) $(LDFLAGS) $(TEST_LDFLAGS)
-	./run_tests.exe
+	$(CXX) $(CXXFLAGS) -o run_tests_system.exe tests/test_main.cpp tests/test_NBodySystem.cpp $(SOURCES_LIB) $(LDFLAGS) $(TEST_LDFLAGS)
+	-./run_tests_system.exe
+
+	$(CXX) $(CXXFLAGS) -o run_tests_simulator.exe tests/test_main.cpp tests/test_NBodySimulator.cpp $(SOURCES_LIB) $(LDFLAGS) $(TEST_LDFLAGS)
+	./run_tests_simulator.exe
 
 test_metrics:
 	$(CXX) $(CXXFLAGS) -I. -o tests/test_metrics.exe \
