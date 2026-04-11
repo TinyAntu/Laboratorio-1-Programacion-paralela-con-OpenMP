@@ -48,6 +48,14 @@ test_metrics:
 		tests/test_metrics.cpp Particle.cpp MetricsCalculator.cpp $(LDFLAGS)
 	./tests/test_metrics.exe
 
+test_benchmark:
+	g++ -Wall -Wextra -O3 -fopenmp -std=c++17 -I. \
+	    tests/test_Benchmark.cpp \
+	    Particle.cpp NBodySystem.cpp NBodySimulator.cpp \
+	    MetricsCalculator.cpp Benchmark.cpp \
+	    -o test_benchmark
+	./test_benchmark
+
 # Limpiar archivos generados (Comando del para Windows)
 
 clean:

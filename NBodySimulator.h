@@ -43,12 +43,12 @@ public:
     void calculateMetricsFirstprivate();
     void calculateFinalStateLastprivate();
 
-    
     const std::vector<Particle>& getBodies() const { return system->getBodies(); }
     const NBodySystem* getSystem() const { return system; }
     const std::pair<double, double>& getSystemEnergy() const { return energy_system; } 
 
     NBodySystem& getSystem(); //Para los test
+
 };
 
 #endif // NBODYSIMULATOR_H

@@ -110,6 +110,9 @@ SystemMetrics MetricsCalculator::calculateAll(
     return m;
 }
 
+// Acá hay que quitar los parámetros de selección de método y solo usar el de reudcción
+// En todos los metodos paralelos en realidad
+
 double MetricsCalculator::calculateKineticEnergyParallel(
         const std::vector<Particle>& bodies, int method) const {
     int n = static_cast<int>(bodies.size());

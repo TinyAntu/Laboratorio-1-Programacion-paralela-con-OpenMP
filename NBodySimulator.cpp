@@ -2,6 +2,9 @@
 #include "MetricsCalculator.h"
 #include <iostream>
 #include <cmath>
+#include <stdexcept>
+#include <algorithm>
+#include <omp.h>
 
 // Constructor del simulador, recibe un puntero al sistema de cuerpos y el paso de tiempo a usar en la integración temporal
 NBodySimulator::NBodySimulator(int N, unsigned int seed, double G, double softening, double dt) 
@@ -106,6 +109,142 @@ void NBodySimulator::processBodies() {
     }
 }
 
+
+
+void NBodySimulator::integrateEuler(int sync_type) {
+    system->zeroAccelerations();
+    system->computeAccelerations();
+    calculateEnergy();
+
+    std::vector<Particle>& bodies = system->getBodies();
+    int n = static_cast<int>(bodies.size());
+
+    if (sync_type == 0) {
+        double total_kinetic = 0.0;
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            bodies[i].kick(time_step);
+            bodies[i].drift(time_step);
+
+            double vx = bodies[i].getVx();
+            double vy = bodies[i].getVy();
+            double contrib = 0.5 * bodies[i].getMass() * (vx * vx + vy * vy);
+            #pragma omp atomic
+            total_kinetic += contrib;
+        }
+        (void)total_kinetic;
+
+    } else if (sync_type == 1) {
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            double vx = bodies[i].getVx() + bodies[i].getAx() * time_step;
+            double vy = bodies[i].getVy() + bodies[i].getAy() * time_step;
+            #pragma omp critical
+            {
+                bodies[i].setVx(vx);
+                bodies[i].setVy(vy);
+            }
+            bodies[i].drift(time_step);
+        }
+
+    } else if (sync_type == 2) {
+        #pragma omp parallel
+        {
+            #pragma omp for schedule(static) nowait
+            for (int i = 0; i < n; ++i) {
+                bodies[i].kick(time_step);
+            }
+            #pragma omp for schedule(static) nowait
+            for (int i = 0; i < n; ++i) {
+                bodies[i].drift(time_step);
+            }
+        }
+
+    } else {
+        throw std::invalid_argument(
+            "sync_type invalido: use 0=atomic, 1=critical, 2=nowait");
+    }
+}
+
+void NBodySimulator::integrateEuler(int sync_type, bool use_barrier) {
+    system->zeroAccelerations();
+    system->computeAccelerations();
+
+    std::vector<Particle>& bodies = system->getBodies();
+    int n = static_cast<int>(bodies.size());
+
+    double total_kinetic = 0.0;
+
+    #pragma omp parallel shared(total_kinetic)
+    {
+        #pragma omp for schedule(static) nowait
+        for (int i = 0; i < n; ++i) {
+            double vx = bodies[i].getVx() + bodies[i].getAx() * time_step;
+            double vy = bodies[i].getVy() + bodies[i].getAy() * time_step;
+
+            if (sync_type == 0) {
+                bodies[i].setVx(vx);
+                bodies[i].setVy(vy);
+
+                double contrib =
+                    0.5 * bodies[i].getMass() * (vx * vx + vy * vy);
+                #pragma omp atomic
+                total_kinetic += contrib;
+
+            } else if (sync_type == 1) {
+                #pragma omp critical
+                {
+                    bodies[i].setVx(vx);
+                    bodies[i].setVy(vy);
+                }
+
+            } else if (sync_type == 2) {
+                bodies[i].setVx(vx);
+                bodies[i].setVy(vy);
+
+            } else {
+                throw std::invalid_argument(
+                    "sync_type invalido: use 0=atomic, 1=critical, 2=nowait");
+            }
+        }
+
+        if (use_barrier) {
+            #pragma omp barrier
+        }
+
+        #pragma omp for schedule(static) nowait
+        for (int i = 0; i < n; ++i) {
+            bodies[i].drift(time_step);
+        }
+    }
+
+    (void)total_kinetic;
+
+    calculateEnergy();
+}
+
+void NBodySimulator::calculateEnergy(int method) {
+    const auto& bodies = system->getBodies();
+    double G         = system->getG();
+    double soft      = system->getSoftening();
+    MetricsCalculator calc;
+
+    double K = calc.calculateKineticEnergyParallel(bodies, method);
+    double U = calc.calculatePotentialEnergyParallel(bodies, G, soft, method);
+    energy_system = {K, U};
+}
+
+void NBodySimulator::calculateEnergy(int method, bool use_private) {
+    const auto& bodies = system->getBodies();
+    double G         = system->getG();
+    double soft      = system->getSoftening();
+    MetricsCalculator calc;
+
+    double K = calc.calculateKineticEnergyParallel(bodies, method, use_private);
+    double U = calc.calculatePotentialEnergyParallel(bodies, G, soft, method);
+    energy_system = {K, U};
+}
+
 //Procesamiento task, parallel_for
 
 void NBodySimulator::processBodies(int task_type){
@@ -140,5 +279,170 @@ NBodySystem& NBodySimulator::getSystem() {
     return *system;
 }
 
+void NBodySimulator::processBodies(int task_type, bool use_single) {
+    std::vector<Particle>& bodies = system->getBodies();
+    int n = static_cast<int>(bodies.size());
+    const int chunk_size = 64;
 
+    if (task_type == 0) {
+        if (use_single) {
+            #pragma omp parallel
+            {
+                #pragma omp single
+                {
+                    for (int start = 0; start < n; start += chunk_size) {
+                        int end = std::min(start + chunk_size, n);
+                        #pragma omp task firstprivate(start, end)
+                        {
+                            for (int i = start; i < end; ++i) {
+                                bodies[i].kick(time_step);
+                                bodies[i].drift(time_step);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            #pragma omp parallel
+            {
+                int tid = omp_get_thread_num();
+                int nthreads = omp_get_num_threads();
+                int per_thread = (n + nthreads - 1) / nthreads;
+                int start_t = tid * per_thread;
+                int end_t = std::min(start_t + per_thread, n);
 
+                for (int start = start_t; start < end_t; start += chunk_size) {
+                    int end = std::min(start + chunk_size, end_t);
+                    #pragma omp task firstprivate(start, end)
+                    {
+                        for (int i = start; i < end; ++i) {
+                            bodies[i].kick(time_step);
+                            bodies[i].drift(time_step);
+                        }
+                    }
+                }
+                #pragma omp taskwait
+            }
+        }
+
+    } else if (task_type == 1) {
+        if (use_single) {
+            #pragma omp parallel
+            {
+                #pragma omp single nowait
+                {}
+
+                #pragma omp for schedule(static)
+                for (int i = 0; i < n; ++i) {
+                    bodies[i].kick(time_step);
+                    bodies[i].drift(time_step);
+                }
+            }
+        } else {
+            #pragma omp parallel for schedule(static)
+            for (int i = 0; i < n; ++i) {
+                bodies[i].kick(time_step);
+                bodies[i].drift(time_step);
+            }
+        }
+
+    } else {
+        throw std::invalid_argument(
+            "task_type invalido: use 0=task, 1=parallel_for");
+    }
+}
+
+void NBodySimulator::simulatePhasesBarrier() {
+    std::vector<Particle>& bodies = system->getBodies();
+    int n      = static_cast<int>(bodies.size());
+    double G   = system->getG();
+    double eps = system->getSoftening();
+
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            bodies[i].resetAcceleration();
+        }
+        #pragma omp barrier
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            double ax = 0.0, ay = 0.0;
+            for (int j = 0; j < n; ++j) {
+                if (i == j) continue;
+                double dx     = bodies[j].getX() - bodies[i].getX();
+                double dy     = bodies[j].getY() - bodies[i].getY();
+                double dist2  = dx*dx + dy*dy + eps*eps;
+                double inv3   = 1.0 / (dist2 * std::sqrt(dist2));
+                double factor = G * bodies[j].getMass() * inv3;
+                ax += factor * dx;
+                ay += factor * dy;
+            }
+            bodies[i].setAcceleration(ax, ay);
+        }
+        #pragma omp barrier
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            bodies[i].kick(time_step);
+        }
+        #pragma omp barrier
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            bodies[i].drift(time_step);
+        }
+    }
+
+    calculateEnergy();
+}
+
+void NBodySimulator::parallelInitializationSingle() {
+    std::vector<Particle>& bodies = system->getBodies();
+    int n = static_cast<int>(bodies.size());
+
+    double total_mass = 0.0;
+    double cm_x = 0.0, cm_y = 0.0;
+
+    #pragma omp parallel shared(total_mass, cm_x, cm_y)
+    {
+        #pragma omp single
+        {
+            for (int i = 0; i < n; ++i) {
+                double m = bodies[i].getMass();
+                total_mass += m;
+                cm_x += m * bodies[i].getX();
+                cm_y += m * bodies[i].getY();
+            }
+            if (total_mass > 0.0) {
+                cm_x /= total_mass;
+                cm_y /= total_mass;
+            }
+        }
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; ++i) {
+            bodies[i].kick(time_step);
+            bodies[i].drift(time_step);
+        }
+    }
+
+    calculateEnergy();
+}
+
+void NBodySimulator::calculateMetricsFirstprivate() {
+    MetricsCalculator calc;
+    const auto& bodies = system->getBodies();
+    SystemMetrics m = calc.calculateMetricsFirstprivate(
+        bodies, system->getG(), system->getSoftening());
+    energy_system = {m.kineticEnergy, m.potentialEnergy};
+}
+
+void NBodySimulator::calculateFinalStateLastprivate() {
+    MetricsCalculator calc;
+    const auto& bodies = system->getBodies();
+    SystemMetrics m = calc.calculateFinalStateLastprivate(
+        bodies, system->getG(), system->getSoftening());
+    energy_system = {m.kineticEnergy, m.potentialEnergy};
+}
