@@ -1,5 +1,5 @@
 #include <gtest/gtest.h> 
-#include "../NBodySystem.h"
+#include "NBodySystem.h"
 
 // Prueba de aceleración entre dos cuerpos 
 TEST(NBodyPhysicsTest, AnalyticalTwoBody) {

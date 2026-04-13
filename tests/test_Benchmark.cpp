@@ -1,4 +1,4 @@
-#include "../Benchmark.h"
+#include "Benchmark.h"
 #include <iostream>
 
 int main() {

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h> 
-#include "../NBodySimulator.h"
-#include "../Particle.h"
+#include "NBodySimulator.h"
+#include "Particle.h"
 #include <cmath>
 
 class ProcessBodiesTest : public ::testing::Test {
