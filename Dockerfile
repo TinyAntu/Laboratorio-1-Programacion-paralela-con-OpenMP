@@ -1,28 +1,19 @@
-FROM ubuntu:24.04 AS builder
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    cmake \
-    g++ \
-    make \
- && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-COPY . .
-
-RUN make
+# Base image for GitHub Actions workflow
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 \
- && rm -rf /var/lib/apt/lists/*
+# Instalamos únicamente las dependencias y compiladores
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     ca-certificates \
+     cmake \
+     g++ \
+     make \
+     git \
+     libgomp1 \
+  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /workspace
 
-COPY --from=builder /build/nombre_de_tu_binario .
-CMD ["./nombre_de_tu_binario"]
+CMD ["bash"]
