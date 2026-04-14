@@ -1,8 +1,5 @@
 # 2/2 — On every code change: configure, build, and run tests inside the published
 # `:base` image from GHCR (same ref as build-base-container.yml).
-#
-# Job graph: ensure-base-image → build-and-test
-#   (tests only start after we confirm the image exists in GHCR).
 name: CI
 
 on:
@@ -44,7 +41,8 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          # CAMBIO: Usar el token automático de GitHub
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull base image from GHCR
         run: |
@@ -56,10 +54,9 @@ jobs:
           fi
           echo ""
           echo "::error title=Base image not found in GHCR::Could not pull \`${IMAGE}\`. Nothing was found at that tag (or the registry denied access)."
-          echo ""
           echo "::group::What to do next"
           echo "1. Run **build-base-container** at least once: merge or push a commit that changes \`Dockerfile\` on \`main\` or \`master\`."
-          echo "2. Wait until that workflow finishes and the package appears under the repo's **Packages** (or your account/org packages)."
+          echo "2. Wait until that workflow finishes and the package appears under the repo's **Packages**."
           echo "3. Re-run this **CI** workflow."
           echo "::endgroup::"
           exit 1
@@ -72,7 +69,7 @@ jobs:
       image: ${{ needs.ensure-base-image.outputs.image }}
       credentials:
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -82,10 +79,21 @@ jobs:
         run: |
           cmake -B ${{ env.BUILD_DIR }} \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTING=ON
+            -DBUILD_TESTING=ON \
+            -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
 
       - name: Build
         run: cmake --build ${{ env.BUILD_DIR }} --parallel
 
       - name: Test
-        run: ctest --test-dir ${{ env.BUILD_DIR }} --output-on-failure
+        run: ctest --test-dir ${{ env.BUILD_DIR }} --output-on-failure 
+
+      # NUEVO: Guardar los archivos generados
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        if: always() 
+        with:
+          name: lab1-results
+          path: |
+            ${{ env.BUILD_DIR }}/*.dat
+            ${{ env.BUILD_DIR }}/*.png

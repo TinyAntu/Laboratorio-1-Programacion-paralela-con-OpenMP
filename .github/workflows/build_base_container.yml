@@ -1,8 +1,5 @@
 # 1/2 — When the Dockerfile changes: publish the CI toolchain image to GHCR, then
 # compile the project inside that image (smoke build, no tests).
-#
-# Job graph: single job (no job-level dependencies). Steps are ordered: checkout →
-# image name → buildx → login → build/push → compile in container.
 name: build-base-container
 
 on:
@@ -44,7 +41,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }} 
 
       - name: Build and push base image
         uses: docker/build-push-action@v5
@@ -57,7 +54,6 @@ jobs:
           cache-to: type=inline
           platforms: linux/amd64
 
-      # After a merge/push the image is in GHCR; on a PR it was only built by Buildx.
       - name: Compile project in container (no tests)
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
@@ -79,4 +75,4 @@ jobs:
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
             "${IMG}" \
-            bash -eux -c "cmake -B ${{ env.BUILD_DIR }} -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON && cmake --build ${{ env.BUILD_DIR }} --parallel"
+            bash -eux -c "cmake -B ${{ env.BUILD_DIR }} -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS=\"-Wall -Wextra -Werror\" && cmake --build ${{ env.BUILD_DIR }} --parallel"

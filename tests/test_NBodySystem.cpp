@@ -16,8 +16,8 @@ TEST(NBodyPhysicsTest, AnalyticalTwoBody) {
     
     system.computeAccelerations(); // Tu método secuencial
     
-    // a = G * m2 * d / (d^2 + eps^2)^(3/2) = 1 * 1 * 1 / (1 + 0.01)^1.5 ≈ 0.971
-    double expected_ax = 0.971; 
+    // a = G * m2 * d / (d^2 + eps^2)^(3/2) = 1 * 1 * 1 / (1 + 0.01)^1.5 ≈ 0.9851853368415735
+    double expected_ax = 0.9851853368415735; 
     EXPECT_NEAR(system.getBodies()[0].getAx(), expected_ax, 0.001);
 }
 

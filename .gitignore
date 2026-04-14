@@ -2,3 +2,5 @@
 *.png
 *.gif
 *.exe
+# ignorar la carpeta build
+/build
