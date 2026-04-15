@@ -41,7 +41,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Pull base image from GHCR
         run: |
@@ -68,7 +68,7 @@ jobs:
       image: ${{ needs.ensure-base-image.outputs.image }}
       credentials:
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.GHCR_TOKEN }}
 
     steps:
       - name: Checkout code
