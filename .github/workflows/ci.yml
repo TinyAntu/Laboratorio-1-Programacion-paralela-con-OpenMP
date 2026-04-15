@@ -41,7 +41,6 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          # CAMBIO: Usar el token automático de GitHub
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull base image from GHCR
