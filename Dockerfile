@@ -1,4 +1,4 @@
-#prueba 1
+#prueba 2
 # Base image for GitHub Actions workflow
 FROM ubuntu:24.04
 
