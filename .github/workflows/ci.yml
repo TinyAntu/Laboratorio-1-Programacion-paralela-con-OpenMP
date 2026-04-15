@@ -89,9 +89,11 @@ jobs:
 
       - name: Run Benchmarks (Data Generation)
         run: |
-          # Ejecutamos el binario de benchmark para generar los archivos .dat
-          # (Asegúrate de que este sea el nombre exacto de tu ejecutable)
+          # 1. Ejecutamos los tests de rendimiento
           ./${{ env.BUILD_DIR }}/test_benchmark
+          
+          # 2. Ejecutamos la simulación principal para generar trayectorias y energía
+          ./${{ env.BUILD_DIR }}/nbody_app
 
       - name: Generate Visualizations & Analysis
         run: |
