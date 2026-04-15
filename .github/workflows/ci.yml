@@ -84,15 +84,27 @@ jobs:
       - name: Build
         run: cmake --build ${{ env.BUILD_DIR }} --parallel
 
-      - name: Test
+      - name: Test (Unit & Integration)
         run: ctest --test-dir ${{ env.BUILD_DIR }} --output-on-failure 
 
-      # NUEVO: Guardar los archivos generados
+      - name: Run Benchmarks (Data Generation)
+        run: |
+          # Ejecutamos el binario de benchmark para generar los archivos .dat
+          # (Asegúrate de que este sea el nombre exacto de tu ejecutable)
+          ./${{ env.BUILD_DIR }}/test_benchmark
+
+      - name: Generate Visualizations & Analysis
+        run: |
+          # Ejecutamos tu script de Python para procesar los .dat y crear los gráficos
+          python3 plot.py
+
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         if: always() 
         with:
           name: lab1-results
           path: |
+            *.dat
+            *.png
+            *.gif
             ${{ env.BUILD_DIR }}/*.dat
-            ${{ env.BUILD_DIR }}/*.png
