@@ -1,11 +1,18 @@
-#include <cassert>
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <cstdlib> // Necesario para std::exit
 #include "Particle.h"
 #include "MetricsCalculator.h"
 
-//  Utilidades
+// Macro personalizada de aserción que NO desaparece en modo Release compilación y proporciona mensajes de error detallados.
+#define VERIFY(cond) \
+    if (!(cond)) { \
+        std::cerr << "  [FAIL] Verificación fallida: " << #cond << " en la línea " << __LINE__ << "\n"; \
+        std::exit(1); \
+    }
+
+// Utilidades
 static bool approxEqual(double a, double b, double tol = 1e-9) {
     return std::fabs(a - b) <= tol;
 }
@@ -26,12 +33,12 @@ static void test_kineticEnergy() {
 
     MetricsCalculator mc;
     double K = mc.calculateKineticEnergy(bodies);
-    assert(approxEqual(K, 25.0));
+    VERIFY(approxEqual(K, 25.0));
     pass("kineticEnergy — dos cuerpos, valores exactos");
 
     std::vector<Particle> rest;
     rest.emplace_back(5.0, 1.0, 2.0);  // velocidad default 0,0
-    assert(approxEqual(mc.calculateKineticEnergy(rest), 0.0));
+    VERIFY(approxEqual(mc.calculateKineticEnergy(rest), 0.0));
     pass("kineticEnergy — sistema en reposo");
 }
 
@@ -44,18 +51,18 @@ static void test_potentialEnergy() {
 
     MetricsCalculator mc;
     double U = mc.calculatePotentialEnergy(bodies, 1.0, 0.0);
-    assert(approxEqual(U, -0.4));
+    VERIFY(approxEqual(U, -0.4));
     pass("potentialEnergy — dos cuerpos sin suavizado");
 
     double eps  = 0.1;
     double dist = std::sqrt(25.0 + eps * eps);
     double U_eps = mc.calculatePotentialEnergy(bodies, 1.0, eps);
-    assert(approxEqual(U_eps, -2.0 / dist));
+    VERIFY(approxEqual(U_eps, -2.0 / dist));
     pass("potentialEnergy — dos cuerpos con suavizado");
 
     std::vector<Particle> solo;
     solo.emplace_back(3.0, 0.0, 0.0);
-    assert(approxEqual(mc.calculatePotentialEnergy(solo, 1.0, 0.0), 0.0));
+    VERIFY(approxEqual(mc.calculatePotentialEnergy(solo, 1.0, 0.0), 0.0));
     pass("potentialEnergy — un solo cuerpo");
 }
 
@@ -69,7 +76,7 @@ static void test_totalEnergy() {
 
     MetricsCalculator mc;
     double E = mc.calculateTotalEnergy(bodies, 1.0, 0.0);
-    assert(approxEqual(E, 25.0 - 0.4));
+    VERIFY(approxEqual(E, 25.0 - 0.4));
     pass("totalEnergy = K + U");
 }
 
@@ -86,15 +93,15 @@ static void test_linearMomentum() {
 
     MetricsCalculator mc;
     auto P = mc.calculateLinearMomentum(bodies);
-    assert(approxEqual(P[0], 7.0));
-    assert(approxEqual(P[1], 10.0));
+    VERIFY(approxEqual(P[0], 7.0));
+    VERIFY(approxEqual(P[1], 10.0));
     pass("linearMomentum — dos cuerpos");
 
     std::vector<Particle> rest;
     rest.emplace_back(5.0, 0.0, 0.0);
     auto Pr = mc.calculateLinearMomentum(rest);
-    assert(approxEqual(Pr[0], 0.0));
-    assert(approxEqual(Pr[1], 0.0));
+    VERIFY(approxEqual(Pr[0], 0.0));
+    VERIFY(approxEqual(Pr[1], 0.0));
     pass("linearMomentum — sistema en reposo");
 }
 
@@ -107,15 +114,15 @@ static void test_centerOfMass() {
 
     MetricsCalculator mc;
     auto cm = mc.calculateCenterOfMass(bodies);
-    assert(approxEqual(cm[0], 1.0));
-    assert(approxEqual(cm[1], 4.0 / 3.0));
+    VERIFY(approxEqual(cm[0], 1.0));
+    VERIFY(approxEqual(cm[1], 4.0 / 3.0));
     pass("centerOfMass — dos cuerpos");
 
     std::vector<Particle> zero_mass;
     zero_mass.emplace_back(0.0, 5.0, 5.0);
     auto cmz = mc.calculateCenterOfMass(zero_mass);
-    assert(approxEqual(cmz[0], 0.0));
-    assert(approxEqual(cmz[1], 0.0));
+    VERIFY(approxEqual(cmz[0], 0.0));
+    VERIFY(approxEqual(cmz[1], 0.0));
     pass("centerOfMass — masa total cero, no crash");
 }
 
@@ -128,12 +135,12 @@ static void test_rmsRadius() {
 
     MetricsCalculator mc;
     double rms = mc.calculateRMSRadius(bodies);
-    assert(approxEqual(rms, 1.0));
+    VERIFY(approxEqual(rms, 1.0));
     pass("rmsRadius — dos masas iguales simétricas");
 
     std::vector<Particle> solo;
     solo.emplace_back(3.0, 7.0, 7.0);
-    assert(approxEqual(mc.calculateRMSRadius(solo), 0.0));
+    VERIFY(approxEqual(mc.calculateRMSRadius(solo), 0.0));
     pass("rmsRadius — un solo cuerpo");
 }
 
@@ -147,13 +154,13 @@ static void test_minDistance() {
 
     MetricsCalculator mc;
     double dmin = mc.calculateMinDistance(bodies);
-    assert(approxEqual(dmin, 1.0));
+    VERIFY(approxEqual(dmin, 1.0));
     pass("minDistance — tres cuerpos, mínimo correcto");
 
     std::vector<Particle> two;
     two.emplace_back(1.0, 0.0, 0.0);
     two.emplace_back(1.0, 3.0, 4.0);
-    assert(approxEqual(mc.calculateMinDistance(two), 5.0));
+    VERIFY(approxEqual(mc.calculateMinDistance(two), 5.0));
     pass("minDistance — dos cuerpos distancia 5");
 }
 
@@ -168,11 +175,11 @@ static void test_calculateAll() {
     MetricsCalculator mc;
     SystemMetrics m = mc.calculateAll(bodies, 1.0, 0.0);
 
-    assert(approxEqual(m.kineticEnergy,   mc.calculateKineticEnergy(bodies)));
-    assert(approxEqual(m.potentialEnergy, mc.calculatePotentialEnergy(bodies, 1.0, 0.0)));
-    assert(approxEqual(m.totalEnergy,     m.kineticEnergy + m.potentialEnergy));
-    assert(approxEqual(m.momentumMag,     std::sqrt(m.momentumX*m.momentumX + m.momentumY*m.momentumY)));
-    assert(approxEqual(m.minDistance,     mc.calculateMinDistance(bodies)));
+    VERIFY(approxEqual(m.kineticEnergy,   mc.calculateKineticEnergy(bodies)));
+    VERIFY(approxEqual(m.potentialEnergy, mc.calculatePotentialEnergy(bodies, 1.0, 0.0)));
+    VERIFY(approxEqual(m.totalEnergy,     m.kineticEnergy + m.potentialEnergy));
+    VERIFY(approxEqual(m.momentumMag,     std::sqrt(m.momentumX*m.momentumX + m.momentumY*m.momentumY)));
+    VERIFY(approxEqual(m.minDistance,     mc.calculateMinDistance(bodies)));
     pass("calculateAll — coherencia interna entre campos");
 }
 
@@ -192,22 +199,22 @@ static void test_parallelConsistency() {
     double K_serial = mc.calculateKineticEnergy(bodies);
 
     double K_par0 = mc.calculateKineticEnergyParallel(bodies, 0);
-    assert(approxEqual(K_serial, K_par0, 1e-10));
+    VERIFY(approxEqual(K_serial, K_par0, 1e-10));
     pass("parallelKinetic method=0 (reduction) == serial");
 
     double K_par1 = mc.calculateKineticEnergyParallel(bodies, 1);
-    assert(approxEqual(K_serial, K_par1, 1e-10));
+    VERIFY(approxEqual(K_serial, K_par1, 1e-10));
     pass("parallelKinetic method=1 (atomic) == serial");
 
     double K_priv = mc.calculateKineticEnergyParallel(bodies, 0, true);
-    assert(approxEqual(K_serial, K_priv, 1e-10));
+    VERIFY(approxEqual(K_serial, K_priv, 1e-10));
     pass("parallelKinetic use_private=true == serial");
 
     double U_serial = mc.calculatePotentialEnergy(bodies, 1.0, 0.01);
     double U_par0   = mc.calculatePotentialEnergyParallel(bodies, 1.0, 0.01, 0);
     double U_par1   = mc.calculatePotentialEnergyParallel(bodies, 1.0, 0.01, 1);
-    assert(approxEqual(U_serial, U_par0, 1e-9));
-    assert(approxEqual(U_serial, U_par1, 1e-9));
+    VERIFY(approxEqual(U_serial, U_par0, 1e-9));
+    VERIFY(approxEqual(U_serial, U_par1, 1e-9));
     pass("parallelPotential method=0 y 1 == serial (tol 1e-9)");
 }
 
@@ -227,14 +234,14 @@ static void test_firstprivateLastprivate() {
     SystemMetrics mfp  = mc.calculateMetricsFirstprivate(bodies, G, eps);
     SystemMetrics mlp  = mc.calculateFinalStateLastprivate(bodies, G, eps);
 
-    assert(approxEqual(ref.kineticEnergy, mfp.kineticEnergy,  1e-9));
-    assert(approxEqual(ref.kineticEnergy, mlp.kineticEnergy,  1e-9));
+    VERIFY(approxEqual(ref.kineticEnergy, mfp.kineticEnergy,  1e-9));
+    VERIFY(approxEqual(ref.kineticEnergy, mlp.kineticEnergy,  1e-9));
 
-    assert(approxEqual(ref.momentumX, mfp.momentumX, 1e-9));
-    assert(approxEqual(ref.momentumY, mfp.momentumY, 1e-9));
+    VERIFY(approxEqual(ref.momentumX, mfp.momentumX, 1e-9));
+    VERIFY(approxEqual(ref.momentumY, mfp.momentumY, 1e-9));
 
-    assert(approxEqual(ref.totalEnergy, mfp.totalEnergy, 1e-9));
-    assert(approxEqual(ref.totalEnergy, mlp.totalEnergy, 1e-9));
+    VERIFY(approxEqual(ref.totalEnergy, mfp.totalEnergy, 1e-9));
+    VERIFY(approxEqual(ref.totalEnergy, mlp.totalEnergy, 1e-9));
 
     pass("firstprivate — K, Px, Py coinciden con referencia serial");
     pass("lastprivate  — K, totalEnergy coinciden con referencia serial");
