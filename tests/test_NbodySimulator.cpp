@@ -55,9 +55,10 @@ TEST_F(NBodySimulatorIntegrationTest, ConsistencyOfSyncVariants) {
 
     // sync_type: 0=atomic, 1=critical, 2=nowait
     for (int sync = 0; sync <= 2; ++sync) {
+        SCOPED_TRACE("Testing sync_type = " + std::to_string(sync));
         NBodySimulator syncSim(N, seed, G, softening, dt);
         syncSim.integrateEuler(sync);
-        compareSimulators(serialSim, syncSim) << "Failed for sync_type=" << sync;
+        compareSimulators(serialSim, syncSim);
     }
 }
 
