@@ -45,17 +45,16 @@ if(BUILD_TESTING)
     tests/test_main.cpp
     tests/test_NbodySimulator.cpp
     tests/test_NBodySystem.cpp
+    tests/test_Particle.cpp
+    tests/test_metrics.cpp
+    tests/test_integrator.cpp
   )
 
   target_link_libraries(nbody_tests PRIVATE nbody_core GTest::gtest_main)
 
-  add_executable(test_metrics tests/test_metrics.cpp)
-  target_link_libraries(test_metrics PRIVATE nbody_core)
-
   add_executable(test_benchmark tests/test_Benchmark.cpp)
-  target_link_libraries(test_benchmark PRIVATE nbody_core)
+  target_link_libraries(test_benchmark PRIVATE nbody_core GTest::gtest_main)
 
-  add_test(NAME test_metrics COMMAND test_metrics)
   add_test(NAME test_benchmark COMMAND test_benchmark)
 
   include(GoogleTest)

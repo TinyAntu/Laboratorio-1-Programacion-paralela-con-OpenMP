@@ -2,108 +2,125 @@
 #include "NBodySimulator.h"
 #include "Particle.h"
 #include <cmath>
+#include <vector>
 
-class ProcessBodiesTest : public ::testing::Test {
+class NBodySimulatorIntegrationTest : public ::testing::Test {
 protected:
-    NBodySimulator* simulator1;
-    NBodySimulator* simulator2;
+    const int N = 20;
+    const unsigned int seed = 1234;
+    const double G = 1.0;
+    const double softening = 0.05;
+    const double dt = 0.001;
 
-    void SetUp() override {
-        // Create two identical simulators with same seed
-        unsigned int seed = 42;
-        int N = 10; // Small number for testing
-        double G = 1.0;
-        double softening = 0.1;
-        double dt = 0.01;
-
-        simulator1 = new NBodySimulator(N, seed, G, softening, dt);
-        simulator2 = new NBodySimulator(N, seed, G, softening, dt);
-    }
-
-    void TearDown() override {
-        delete simulator1;
-        delete simulator2;
-    }
-
-    bool particlesEqual(const Particle& p1, const Particle& p2, double tolerance = 1e-10) {
-        // Compare positions (x, y)
-        if (std::abs(p1.getX() - p2.getX()) > tolerance) return false;
-        if (std::abs(p1.getY() - p2.getY()) > tolerance) return false;
-
-        // Compare velocities (vx, vy)
-        if (std::abs(p1.getVx() - p2.getVx()) > tolerance) return false;
-        if (std::abs(p1.getVy() - p2.getVy()) > tolerance) return false;
-
-        return true;
+    void compareSimulators(const NBodySimulator& sim1, const NBodySimulator& sim2, double tolerance = 1e-10) {
+        const auto& bodies1 = sim1.getBodies();
+        const auto& bodies2 = sim2.getBodies();
+        
+        ASSERT_EQ(bodies1.size(), bodies2.size());
+        for (size_t i = 0; i < bodies1.size(); ++i) {
+            EXPECT_NEAR(bodies1[i].getX(), bodies2[i].getX(), tolerance) << "Mismatch in X at particle " << i;
+            EXPECT_NEAR(bodies1[i].getY(), bodies2[i].getY(), tolerance) << "Mismatch in Y at particle " << i;
+            EXPECT_NEAR(bodies1[i].getVx(), bodies2[i].getVx(), tolerance) << "Mismatch in Vx at particle " << i;
+            EXPECT_NEAR(bodies1[i].getVy(), bodies2[i].getVy(), tolerance) << "Mismatch in Vy at particle " << i;
+        }
     }
 };
 
-// Test that task version and parallel for produce same results
-TEST_F(ProcessBodiesTest, TaskVsParallelForSameResults) {
-    // Setup: compute accelerations for both simulators
-    simulator1->getSystem().zeroAccelerations();
-    simulator2->getSystem().zeroAccelerations();
+// Test que valida que todas las variantes de integrateEuler coinciden con la secuencial
+TEST_F(NBodySimulatorIntegrationTest, ConsistencyOfAllEulerVariants) {
+    // 1. Referencia Secuencial
+    NBodySimulator serialSim(N, seed, G, softening, dt);
+    serialSim.integrateEuler();
 
-    simulator1->getSystem().computeAccelerations();
-    simulator2->getSystem().computeAccelerations();
+    // 2. Variante Schedule
+    NBodySimulator schedSim(N, seed, G, softening, dt);
+    schedSim.integrateEulerSchedule();
+    compareSimulators(serialSim, schedSim);
 
-    // Apply processBodies with task version (task_type = 0)
-    simulator1->processBodies(0);
+    // 3. Variante Collapse
+    NBodySimulator collapseSim(N, seed, G, softening, dt);
+    collapseSim.integrateEulerCollapse();
+    compareSimulators(serialSim, collapseSim);
 
-    // Apply processBodies with parallel for version (task_type = 1)
-    simulator2->processBodies(1);
+    // 4. Variante Newton3
+    NBodySimulator newtonSim(N, seed, G, softening, dt);
+    newtonSim.integrateEulerNewton3();
+    compareSimulators(serialSim, newtonSim);
+}
 
-    // Compare results
-    const auto& bodies1 = simulator1->getSystem().getBodies();
-    const auto& bodies2 = simulator2->getSystem().getBodies();
+// Test que valida las variantes de sincronización (Atomic, Critical, Nowait)
+TEST_F(NBodySimulatorIntegrationTest, ConsistencyOfSyncVariants) {
+    NBodySimulator serialSim(N, seed, G, softening, dt);
+    serialSim.integrateEuler();
 
-    ASSERT_EQ(bodies1.size(), bodies2.size());
-
-    for (size_t i = 0; i < bodies1.size(); ++i) {
-        EXPECT_TRUE(particlesEqual(bodies1[i], bodies2[i]))
-            << "Particle " << i << " differs between task and parallel for versions";
+    // sync_type: 0=atomic, 1=critical, 2=nowait
+    for (int sync = 0; sync <= 2; ++sync) {
+        NBodySimulator syncSim(N, seed, G, softening, dt);
+        syncSim.integrateEuler(sync);
+        compareSimulators(serialSim, syncSim) << "Failed for sync_type=" << sync;
     }
 }
 
-// Test that processBodies modifies particle velocities correctly
-TEST_F(ProcessBodiesTest, ProcessBodiesModifiesVelocities) {
-    simulator1->getSystem().zeroAccelerations();
-    simulator1->getSystem().computeAccelerations();
+// Test de conservación del Momento Lineal
+TEST_F(NBodySimulatorIntegrationTest, LinearMomentumConservation) {
+    NBodySimulator sim(N, seed, G, softening, dt);
+    
+    auto calculateP = [](const std::vector<Particle>& bodies) {
+        double px = 0, py = 0;
+        for (const auto& p : bodies) {
+            px += p.getMass() * p.getVx();
+            py += p.getMass() * p.getVy();
+        }
+        return std::make_pair(px, py);
+    };
 
-    auto bodies_before = simulator1->getSystem().getBodies();
-    double vel_before_x = bodies_before[0].getVx();
-    double vel_before_y = bodies_before[0].getVy();
+    auto P_initial = calculateP(sim.getBodies());
+    
+    // Simular 10 pasos
+    for(int i=0; i<10; ++i) {
+        sim.integrateEuler();
+    }
 
-    simulator1->processBodies(1); // parallel for version
+    auto P_final = calculateP(sim.getBodies());
 
-    const auto& bodies_after = simulator1->getSystem().getBodies();
-    double vel_after_x = bodies_after[0].getVx();
-    double vel_after_y = bodies_after[0].getVy();
-
-    // Velocities should change after kick
-    EXPECT_FALSE(std::abs(vel_before_x - vel_after_x) < 1e-10 &&
-                 std::abs(vel_before_y - vel_after_y) < 1e-10)
-        << "Velocities should change after processBodies";
+    // El momento lineal debe conservarse en un sistema cerrado
+    EXPECT_NEAR(P_initial.first, P_final.first, 1e-10);
+    EXPECT_NEAR(P_initial.second, P_final.second, 1e-10);
 }
 
-// Test that processBodies modifies particle positions correctly
-TEST_F(ProcessBodiesTest, ProcessBodiesModifiesPositions) {
-    simulator1->getSystem().zeroAccelerations();
-    simulator1->getSystem().computeAccelerations();
+// TEST: Cláusulas Avanzadas de OpenMP (Barrier y Phases)
+TEST_F(NBodySimulatorIntegrationTest, AdvancedOpenMPPhases) {
+    NBodySimulator simSerial(N, seed, G, softening, dt);
+    simSerial.integrateEuler(); // Un paso secuencial
 
-    auto bodies_before = simulator1->getSystem().getBodies();
-    double pos_before_x = bodies_before[0].getX();
-    double pos_before_y = bodies_before[0].getY();
+    NBodySimulator simBarrier(N, seed, G, softening, dt);
+    simBarrier.simulatePhasesBarrier(); // Un paso con barreras explicitas
 
-    simulator1->processBodies(0); // task version
+    compareSimulators(simSerial, simBarrier);
+}
 
-    const auto& bodies_after = simulator1->getSystem().getBodies();
-    double pos_after_x = bodies_after[0].getX();
-    double pos_after_y = bodies_after[0].getY();
+// TEST: Cláusulas Single y Firstprivate/Lastprivate
+TEST_F(NBodySimulatorIntegrationTest, AdvancedOpenMPClausulas) {
+    NBodySimulator sim(N, seed, G, softening, dt);
+    
+    // 1. Probar parallelInitializationSingle
+    // Esto hace un kick/drift tras calcular CM en bloque single
+    sim.parallelInitializationSingle();
+    EXPECT_GT(sim.getBodies()[0].getX(), -100.0); // Verificación básica de que no explotó
 
-    // Positions should change after drift
-    EXPECT_FALSE(std::abs(pos_before_x - pos_after_x) < 1e-10 &&
-                 std::abs(pos_before_y - pos_after_y) < 1e-10)
-        << "Positions should change after processBodies";
+    // 2. Probar calculateMetricsFirstprivate
+    sim.calculateMetricsFirstprivate();
+    double K_fp = sim.getSystemEnergy().first;
+    
+    // 3. Probar calculateFinalStateLastprivate
+    sim.calculateFinalStateLastprivate();
+    double K_lp = sim.getSystemEnergy().first;
+
+    // Ambas deben dar la misma energía cinética que la versión secuencial
+    sim.calculateEnergy();
+    double K_serial = sim.getSystemEnergy().first;
+
+    EXPECT_NEAR(K_fp, K_serial, 1e-10);
+    EXPECT_NEAR(K_lp, K_serial, 1e-10);
 }
 

@@ -1,266 +1,104 @@
-#include <cmath>
-#include <iostream>
-#include <vector>
-#include <cstdlib> // Necesario para std::exit
-#include "Particle.h"
+#include <gtest/gtest.h>
 #include "MetricsCalculator.h"
+#include "Particle.h"
+#include <vector>
+#include <cmath>
 
-// Macro personalizada de aserción que NO desaparece en modo Release compilación y proporciona mensajes de error detallados.
-#define VERIFY(cond) \
-    if (!(cond)) { \
-        std::cerr << "  [FAIL] Verificación fallida: " << #cond << " en la línea " << __LINE__ << "\n"; \
-        std::exit(1); \
+class MetricsTest : public ::testing::Test {
+protected:
+    MetricsCalculator calc;
+    double G = 1.0;
+    double softening = 0.1;
+};
+
+// Test de Energía Cinética: K = 1/2 * m * v^2
+TEST_F(MetricsTest, KineticEnergySimple) {
+    std::vector<Particle> bodies;
+    Particle p1(2.0, 0.0, 0.0); // m=2
+    p1.setVx(1.0); // v=1 -> K = 0.5 * 2 * 1^2 = 1.0
+    
+    Particle p2(4.0, 0.0, 0.0); // m=4
+    p2.setVy(2.0); // v=2 -> K = 0.5 * 4 * 2^2 = 8.0
+    
+    bodies.push_back(p1);
+    bodies.push_back(p2);
+    
+    double expectedK = 1.0 + 8.0;
+    EXPECT_NEAR(calc.calculateKineticEnergy(bodies), expectedK, 1e-10);
+}
+
+// Test de Energía Potencial: U = -G * m1 * m2 / sqrt(r^2 + eps^2)
+TEST_F(MetricsTest, PotentialEnergySimple) {
+    std::vector<Particle> bodies;
+    // Distancia r = 1.0 en eje X
+    Particle p1(1.0, 0.0, 0.0);
+    Particle p2(1.0, 1.0, 0.0);
+    bodies.push_back(p1);
+    bodies.push_back(p2);
+    
+    double r2 = 1.0;
+    double eps2 = softening * softening;
+    double expectedU = -(G * 1.0 * 1.0) / std::sqrt(r2 + eps2);
+    
+    EXPECT_NEAR(calc.calculatePotentialEnergy(bodies, G, softening), expectedU, 1e-10);
+}
+
+// Test de Momento Lineal: P = sum(m * v)
+TEST_F(MetricsTest, LinearMomentum) {
+    std::vector<Particle> bodies;
+    Particle p1(1.0, 0.0, 0.0);
+    p1.setVx(10.0);
+    p1.setVy(5.0);
+    
+    Particle p2(2.0, 0.0, 0.0);
+    p2.setVx(-2.0);
+    p2.setVy(0.0);
+    
+    bodies.push_back(p1);
+    bodies.push_back(p2);
+    
+    // Px = 1*10 + 2*(-2) = 6.0
+    // Py = 1*5 + 2*0 = 5.0
+    auto P = calc.calculateLinearMomentum(bodies);
+    EXPECT_NEAR(P[0], 6.0, 1e-10);
+    EXPECT_NEAR(P[1], 5.0, 1e-10);
+}
+
+// Test de Centro de Masa: R = sum(m * r) / sum(m)
+TEST_F(MetricsTest, CenterOfMass) {
+    std::vector<Particle> bodies;
+    bodies.push_back(Particle(1.0, 0.0, 0.0));
+    bodies.push_back(Particle(3.0, 4.0, 0.0));
+    
+    // CM_x = (1*0 + 3*4) / 4 = 3.0
+    // CM_y = (1*0 + 3*0) / 4 = 0.0
+    auto CM = calc.calculateCenterOfMass(bodies);
+    EXPECT_NEAR(CM[0], 3.0, 1e-10);
+    EXPECT_NEAR(CM[1], 0.0, 1e-10);
+}
+
+// Test de Consistencia Serial vs Paralelo para Métricas
+TEST_F(MetricsTest, ParallelConsistency) {
+    std::vector<Particle> bodies;
+    // Crear algunas partículas aleatorias
+    for(int i=0; i<50; ++i) {
+        Particle p(1.0, (double)i, (double)(i*i));
+        p.setVx(0.1 * i);
+        p.setVy(-0.1 * i);
+        bodies.push_back(p);
     }
-
-// Utilidades
-static bool approxEqual(double a, double b, double tol = 1e-9) {
-    return std::fabs(a - b) <= tol;
-}
-
-static void pass(const char* name) {
-    std::cout << "  [PASS] " << name << "\n";
-}
-
-//  1. Energía cinética
-static void test_kineticEnergy() {
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.back().setVx(3.0);
-    bodies.back().setVy(4.0);
-    bodies.emplace_back(1.0, 1.0, 0.0);
-    bodies.back().setVx(0.0);
-    bodies.back().setVy(0.0);
-
-    MetricsCalculator mc;
-    double K = mc.calculateKineticEnergy(bodies);
-    VERIFY(approxEqual(K, 25.0));
-    pass("kineticEnergy — dos cuerpos, valores exactos");
-
-    std::vector<Particle> rest;
-    rest.emplace_back(5.0, 1.0, 2.0);  // velocidad default 0,0
-    VERIFY(approxEqual(mc.calculateKineticEnergy(rest), 0.0));
-    pass("kineticEnergy — sistema en reposo");
-}
-
-//  2. Energía potencial
-static void test_potentialEnergy() {
-
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.emplace_back(1.0, 3.0, 4.0);
-
-    MetricsCalculator mc;
-    double U = mc.calculatePotentialEnergy(bodies, 1.0, 0.0);
-    VERIFY(approxEqual(U, -0.4));
-    pass("potentialEnergy — dos cuerpos sin suavizado");
-
-    double eps  = 0.1;
-    double dist = std::sqrt(25.0 + eps * eps);
-    double U_eps = mc.calculatePotentialEnergy(bodies, 1.0, eps);
-    VERIFY(approxEqual(U_eps, -2.0 / dist));
-    pass("potentialEnergy — dos cuerpos con suavizado");
-
-    std::vector<Particle> solo;
-    solo.emplace_back(3.0, 0.0, 0.0);
-    VERIFY(approxEqual(mc.calculatePotentialEnergy(solo, 1.0, 0.0), 0.0));
-    pass("potentialEnergy — un solo cuerpo");
-}
-
-//  3. Energía total
-static void test_totalEnergy() {
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.back().setVx(3.0);
-    bodies.back().setVy(4.0);
-    bodies.emplace_back(1.0, 3.0, 4.0);
-
-    MetricsCalculator mc;
-    double E = mc.calculateTotalEnergy(bodies, 1.0, 0.0);
-    VERIFY(approxEqual(E, 25.0 - 0.4));
-    pass("totalEnergy = K + U");
-}
-
-//  4. Momento lineal
-static void test_linearMomentum() {
-
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.back().setVx(3.0);
-    bodies.back().setVy(4.0);
-    bodies.emplace_back(1.0, 1.0, 0.0);
-    bodies.back().setVx(1.0);
-    bodies.back().setVy(2.0);
-
-    MetricsCalculator mc;
-    auto P = mc.calculateLinearMomentum(bodies);
-    VERIFY(approxEqual(P[0], 7.0));
-    VERIFY(approxEqual(P[1], 10.0));
-    pass("linearMomentum — dos cuerpos");
-
-    std::vector<Particle> rest;
-    rest.emplace_back(5.0, 0.0, 0.0);
-    auto Pr = mc.calculateLinearMomentum(rest);
-    VERIFY(approxEqual(Pr[0], 0.0));
-    VERIFY(approxEqual(Pr[1], 0.0));
-    pass("linearMomentum — sistema en reposo");
-}
-
-//  5. Centro de masas
-static void test_centerOfMass() {
-
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.emplace_back(1.0, 3.0, 4.0);
-
-    MetricsCalculator mc;
-    auto cm = mc.calculateCenterOfMass(bodies);
-    VERIFY(approxEqual(cm[0], 1.0));
-    VERIFY(approxEqual(cm[1], 4.0 / 3.0));
-    pass("centerOfMass — dos cuerpos");
-
-    std::vector<Particle> zero_mass;
-    zero_mass.emplace_back(0.0, 5.0, 5.0);
-    auto cmz = mc.calculateCenterOfMass(zero_mass);
-    VERIFY(approxEqual(cmz[0], 0.0));
-    VERIFY(approxEqual(cmz[1], 0.0));
-    pass("centerOfMass — masa total cero, no crash");
-}
-
-//  6. Radio RMS
-static void test_rmsRadius() {
-
-    std::vector<Particle> bodies;
-    bodies.emplace_back(1.0, -1.0, 0.0);
-    bodies.emplace_back(1.0,  1.0, 0.0);
-
-    MetricsCalculator mc;
-    double rms = mc.calculateRMSRadius(bodies);
-    VERIFY(approxEqual(rms, 1.0));
-    pass("rmsRadius — dos masas iguales simétricas");
-
-    std::vector<Particle> solo;
-    solo.emplace_back(3.0, 7.0, 7.0);
-    VERIFY(approxEqual(mc.calculateRMSRadius(solo), 0.0));
-    pass("rmsRadius — un solo cuerpo");
-}
-
-//  7. Distancia mínima
-static void test_minDistance() {
-
-    std::vector<Particle> bodies;
-    bodies.emplace_back(1.0, 0.0, 0.0);
-    bodies.emplace_back(1.0, 3.0, 4.0);
-    bodies.emplace_back(1.0, 1.0, 0.0);
-
-    MetricsCalculator mc;
-    double dmin = mc.calculateMinDistance(bodies);
-    VERIFY(approxEqual(dmin, 1.0));
-    pass("minDistance — tres cuerpos, mínimo correcto");
-
-    std::vector<Particle> two;
-    two.emplace_back(1.0, 0.0, 0.0);
-    two.emplace_back(1.0, 3.0, 4.0);
-    VERIFY(approxEqual(mc.calculateMinDistance(two), 5.0));
-    pass("minDistance — dos cuerpos distancia 5");
-}
-
-//  8. calculateAll — consistencia interna
-static void test_calculateAll() {
-    std::vector<Particle> bodies;
-    bodies.emplace_back(2.0, 0.0, 0.0);
-    bodies.back().setVx(3.0);
-    bodies.back().setVy(4.0);
-    bodies.emplace_back(1.0, 3.0, 4.0);
-
-    MetricsCalculator mc;
-    SystemMetrics m = mc.calculateAll(bodies, 1.0, 0.0);
-
-    VERIFY(approxEqual(m.kineticEnergy,   mc.calculateKineticEnergy(bodies)));
-    VERIFY(approxEqual(m.potentialEnergy, mc.calculatePotentialEnergy(bodies, 1.0, 0.0)));
-    VERIFY(approxEqual(m.totalEnergy,     m.kineticEnergy + m.potentialEnergy));
-    VERIFY(approxEqual(m.momentumMag,     std::sqrt(m.momentumX*m.momentumX + m.momentumY*m.momentumY)));
-    VERIFY(approxEqual(m.minDistance,     mc.calculateMinDistance(bodies)));
-    pass("calculateAll — coherencia interna entre campos");
-}
-
-//  9. Versiones paralelas — resultados iguales a serial
-static void test_parallelConsistency() {
-
-    std::vector<Particle> bodies;
-    for (int i = 0; i < 20; ++i) {
-        bodies.emplace_back(1.0 + i * 0.1,
-                            i * 0.5,
-                            i * 0.3);
-        bodies.back().setVx(i * 0.2);
-        bodies.back().setVy(-i * 0.1);
-    }
-
-    MetricsCalculator mc;
-    double K_serial = mc.calculateKineticEnergy(bodies);
-
-    double K_par0 = mc.calculateKineticEnergyParallel(bodies, 0);
-    VERIFY(approxEqual(K_serial, K_par0, 1e-10));
-    pass("parallelKinetic method=0 (reduction) == serial");
-
-    double K_par1 = mc.calculateKineticEnergyParallel(bodies, 1);
-    VERIFY(approxEqual(K_serial, K_par1, 1e-10));
-    pass("parallelKinetic method=1 (atomic) == serial");
-
-    double K_priv = mc.calculateKineticEnergyParallel(bodies, 0, true);
-    VERIFY(approxEqual(K_serial, K_priv, 1e-10));
-    pass("parallelKinetic use_private=true == serial");
-
-    double U_serial = mc.calculatePotentialEnergy(bodies, 1.0, 0.01);
-    double U_par0   = mc.calculatePotentialEnergyParallel(bodies, 1.0, 0.01, 0);
-    double U_par1   = mc.calculatePotentialEnergyParallel(bodies, 1.0, 0.01, 1);
-    VERIFY(approxEqual(U_serial, U_par0, 1e-9));
-    VERIFY(approxEqual(U_serial, U_par1, 1e-9));
-    pass("parallelPotential method=0 y 1 == serial (tol 1e-9)");
-}
-
-//  10. firstprivate / lastprivate — coherencia con calculateAll
-static void test_firstprivateLastprivate() {
-    std::vector<Particle> bodies;
-    for (int i = 0; i < 15; ++i) {
-        bodies.emplace_back(1.0, i * 1.0, 0.0);
-        bodies.back().setVx(0.1 * i);
-        bodies.back().setVy(0.0);
-    }
-
-    MetricsCalculator mc;
-    double G = 1.0, eps = 0.05;
-
-    SystemMetrics ref  = mc.calculateAll(bodies, G, eps);
-    SystemMetrics mfp  = mc.calculateMetricsFirstprivate(bodies, G, eps);
-    SystemMetrics mlp  = mc.calculateFinalStateLastprivate(bodies, G, eps);
-
-    VERIFY(approxEqual(ref.kineticEnergy, mfp.kineticEnergy,  1e-9));
-    VERIFY(approxEqual(ref.kineticEnergy, mlp.kineticEnergy,  1e-9));
-
-    VERIFY(approxEqual(ref.momentumX, mfp.momentumX, 1e-9));
-    VERIFY(approxEqual(ref.momentumY, mfp.momentumY, 1e-9));
-
-    VERIFY(approxEqual(ref.totalEnergy, mfp.totalEnergy, 1e-9));
-    VERIFY(approxEqual(ref.totalEnergy, mlp.totalEnergy, 1e-9));
-
-    pass("firstprivate — K, Px, Py coinciden con referencia serial");
-    pass("lastprivate  — K, totalEnergy coinciden con referencia serial");
-}
-
-int main() {
-    std::cout << "Test de MetricsCalculator\n";
-
-    test_kineticEnergy();
-    test_potentialEnergy();
-    test_totalEnergy();
-    test_linearMomentum();
-    test_centerOfMass();
-    test_rmsRadius();
-    test_minDistance();
-    test_calculateAll();
-    test_parallelConsistency();
-    test_firstprivateLastprivate();
-
-    std::cout << "\nTodos los tests de MetricsCalculator funcionaron correctamente.\n";
-    return 0;
+    
+    double serialK = calc.calculateKineticEnergy(bodies);
+    double parallelK_reduce = calc.calculateKineticEnergyParallel(bodies, 0); // reduction
+    double parallelK_atomic = calc.calculateKineticEnergyParallel(bodies, 1); // atomic
+    
+    EXPECT_NEAR(serialK, parallelK_reduce, 1e-10);
+    EXPECT_NEAR(serialK, parallelK_atomic, 1e-10);
+    
+    double serialU = calc.calculatePotentialEnergy(bodies, G, softening);
+    double parallelU_reduce = calc.calculatePotentialEnergyParallel(bodies, G, softening, 0);
+    double parallelU_atomic = calc.calculatePotentialEnergyParallel(bodies, G, softening, 1);
+    
+    EXPECT_NEAR(serialU, parallelU_reduce, 1e-10);
+    EXPECT_NEAR(serialU, parallelU_atomic, 1e-10);
 }

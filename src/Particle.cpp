@@ -2,7 +2,12 @@
 
 //Constructor
 Particle::Particle(double m, double x0, double y0) 
-    : mass(m), x(x0), y(y0), vx(0), vy(0), ax(0), ay(0) {}
+    : mass(m), x(x0), y(y0), vx(0), vy(0), ax(0), ay(0) 
+{
+    if (m < 0) {
+        throw std::invalid_argument("La masa no puede ser negativa");
+    }
+}
 
 //Resetea la aceleracion a cero
 void Particle::resetAcceleration() {
