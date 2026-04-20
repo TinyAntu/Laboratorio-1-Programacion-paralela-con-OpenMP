@@ -1,3 +1,4 @@
+#test 6
 # Base image for GitHub Actions workflow
 FROM ubuntu:24.04
 

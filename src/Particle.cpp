@@ -1,4 +1,5 @@
 #include "Particle.h"
+#include <stdexcept>
 
 //Constructor
 Particle::Particle(double m, double x0, double y0) 
