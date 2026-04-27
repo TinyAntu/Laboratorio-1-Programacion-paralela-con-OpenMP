@@ -95,11 +95,7 @@ jobs:
           # 2. Ejecutamos la simulación principal para generar trayectorias y energía
           ./${{ env.BUILD_DIR }}/nbody_app
 
-      - name: Generate Visualizations & Analysis
-        run: |
-          # Ejecutamos tu script de Python para procesar los .dat y crear los gráficos
-          python3 plot.py
-
+    #GENERAMOS LA SALIDA DE LOS BENCHMARKS Y LA SUBIMOS COMO ARTIFACTO JUNTO AL ARCHIVO PYTHON PARA GRAFICARLOS
       - name: Upload benchmark artifacts
         uses: actions/upload-artifact@v4
         if: always() 
@@ -107,6 +103,5 @@ jobs:
           name: lab1-results
           path: |
             *.dat
-            *.png
-            *.gif
+            plot.py
             ${{ env.BUILD_DIR }}/*.dat

@@ -5,7 +5,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
 
-# Forzar backend no interactivo si no hay GUI (vital para WSL o servidores)
 if "DISPLAY" not in os.environ:
     matplotlib.use("Agg")
 
@@ -114,71 +113,142 @@ def plot_energy_conservation(filename: str = "energia.dat",
     except Exception as e:
         print(f"Error al procesar '{filename}': {e}")
 
+def plot_performance(benchmark_file: str = "build/benchmark_results.dat",
+                     scaling_file: str = "build/scaling_analysis.dat",
+                     output_png: str = "performance_plots.png"):
+    """
+    Lee los datos de benchmarks y escalabilidad para generar gráficos de rendimiento.
+    """
+    print(f"Procesando rendimiento desde '{benchmark_file}' y '{scaling_file}'...")
+    try:
+        # Gráficos de escalabilidad
+        if os.path.exists(scaling_file):
+            # Parsear el bloque de escalabilidad manualmente
+            threads, speedups, efficiencies = [], [], []
+            with open(scaling_file, 'r') as f:
+                in_scaling_block = False
+                for line in f:
+                    if line.startswith("# 5. Escalabilidad"):
+                        in_scaling_block = True
+                        continue
+                    if line.startswith("# 6. Fraccion serial"):
+                        in_scaling_block = False
+                        break
+                    
+                    if in_scaling_block and not line.startswith("#") and line.strip():
+                        parts = line.split()
+                        if len(parts) >= 8:
+                            threads.append(int(parts[0]))
+                            speedups.append(float(parts[3]))
+                            efficiencies.append(float(parts[5]))
+
+            if threads:
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+                
+                # Speedup
+                ax1.plot(threads, speedups, marker='o', color='blue', label='Speedup medido')
+                ax1.plot(threads, threads, linestyle='--', color='gray', label='Speedup ideal')
+                ax1.set_title('Speedup vs Número de Hilos')
+                ax1.set_xlabel('Hilos')
+                ax1.set_ylabel('Speedup')
+                ax1.legend()
+                ax1.grid(True, linestyle='--', alpha=0.6)
+
+                # Eficiencia
+                ax2.plot(threads, efficiencies, marker='s', color='green', label='Eficiencia')
+                ax2.axhline(1.0, linestyle='--', color='gray', label='Eficiencia ideal')
+                ax2.set_title('Eficiencia vs Número de Hilos')
+                ax2.set_xlabel('Hilos')
+                ax2.set_ylabel('Eficiencia')
+                ax2.set_ylim([0, 1.1])
+                ax2.legend()
+                ax2.grid(True, linestyle='--', alpha=0.6)
+
+                plt.tight_layout()
+                plt.savefig(output_png, dpi=300)
+                plt.close()
+                print(f"Gráfico de rendimiento guardado en {output_png}")
+        else:
+            print(f"Error: No se encontró '{scaling_file}'")
+
+    except Exception as e:
+        print(f"Error al generar gráficos de rendimiento: {e}")
+
 if __name__ == "__main__":
     print("--- Iniciando pipeline de visualización ---")
 
+    # Si los archivos están en build/ o en el dir actual, ajustamos la ruta
+    base_dir = "build/" if os.path.exists("build/benchmark_results.dat") else ""
+
     # Versión base
     plot_trajectories(
-        filename="trayectorias_base.dat",
+        filename=f"{base_dir}trayectorias_base.dat",
         output_png="trayectorias_base.png",
         output_gif="simulacion_base.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename="energia_base.dat",
+        filename=f"{base_dir}energia_base.dat",
         output_png="energia_base.png"
     )
     print("=" * 50)
 
     # Versión schedule
     plot_trajectories(
-        filename="trayectorias_schedule.dat",
+        filename=f"{base_dir}trayectorias_schedule.dat",
         output_png="trayectorias_schedule.png",
         output_gif="simulacion_schedule.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename="energia_schedule.dat",
+        filename=f"{base_dir}energia_schedule.dat",
         output_png="energia_schedule.png"
     )
     print("=" * 50)
 
     # Versión chunk
     plot_trajectories(
-        filename="trayectorias_chunk.dat",
+        filename=f"{base_dir}trayectorias_chunk.dat",
         output_png="trayectorias_chunk.png",
         output_gif="simulacion_chunk.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename="energia_chunk.dat",
+        filename=f"{base_dir}energia_chunk.dat",
         output_png="energia_chunk.png"
     )
     print("=" * 50)
 
     # Versión collapse
     plot_trajectories(
-        filename="trayectorias_collapse.dat",
+        filename=f"{base_dir}trayectorias_collapse.dat",
         output_png="trayectorias_collapse.png",
         output_gif="simulacion_collapse.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename="energia_collapse.dat",
+        filename=f"{base_dir}energia_collapse.dat",
         output_png="energia_collapse.png"
     )
-    #version newton3
     print("=" * 50)
+    #version newton3
     plot_trajectories(
-        filename="trayectorias_newton3.dat",
+        filename=f"{base_dir}trayectorias_newton3.dat",
         output_png="trayectorias_newton3.png",
         output_gif="simulacion_newton3.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename="energia_newton3.dat",
+        filename=f"{base_dir}energia_newton3.dat",
         output_png="energia_newton3.png"
     )
-    
+    print("=" * 50)
+
+    # Gráficos de rendimiento
+    plot_performance(
+        benchmark_file=f"{base_dir}benchmark_results.dat",
+        scaling_file=f"{base_dir}scaling_analysis.dat",
+        output_png="performance_plots.png"
+    )
 
     print("--- Proceso finalizado ---")
