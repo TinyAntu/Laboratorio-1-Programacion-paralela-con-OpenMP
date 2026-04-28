@@ -177,77 +177,74 @@ def plot_performance(benchmark_file: str = "build/benchmark_results.dat",
 if __name__ == "__main__":
     print("--- Iniciando pipeline de visualización ---")
 
-    # Si los archivos están en build/ o en el dir actual, ajustamos la ruta
-    base_dir = "build/" if os.path.exists("build/benchmark_results.dat") else ""
-
     # Versión base
     plot_trajectories(
-        filename=f"{base_dir}trayectorias_base.dat",
+        filename="trayectorias_base.dat",
         output_png="trayectorias_base.png",
         output_gif="simulacion_base.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename=f"{base_dir}energia_base.dat",
+        filename="energia_base.dat",
         output_png="energia_base.png"
     )
     print("=" * 50)
 
     # Versión schedule
     plot_trajectories(
-        filename=f"{base_dir}trayectorias_schedule.dat",
+        filename="trayectorias_schedule.dat",
         output_png="trayectorias_schedule.png",
         output_gif="simulacion_schedule.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename=f"{base_dir}energia_schedule.dat",
+        filename="energia_schedule.dat",
         output_png="energia_schedule.png"
     )
     print("=" * 50)
 
     # Versión chunk
     plot_trajectories(
-        filename=f"{base_dir}trayectorias_chunk.dat",
+        filename="trayectorias_chunk.dat",
         output_png="trayectorias_chunk.png",
         output_gif="simulacion_chunk.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename=f"{base_dir}energia_chunk.dat",
+        filename="energia_chunk.dat",
         output_png="energia_chunk.png"
     )
     print("=" * 50)
 
     # Versión collapse
     plot_trajectories(
-        filename=f"{base_dir}trayectorias_collapse.dat",
+        filename="trayectorias_collapse.dat",
         output_png="trayectorias_collapse.png",
         output_gif="simulacion_collapse.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename=f"{base_dir}energia_collapse.dat",
+        filename="energia_collapse.dat",
         output_png="energia_collapse.png"
     )
     print("=" * 50)
     #version newton3
     plot_trajectories(
-        filename=f"{base_dir}trayectorias_newton3.dat",
+        filename="trayectorias_newton3.dat",
         output_png="trayectorias_newton3.png",
         output_gif="simulacion_newton3.gif"
     )
     print("-" * 30)
     plot_energy_conservation(
-        filename=f"{base_dir}energia_newton3.dat",
+        filename="energia_newton3.dat",
         output_png="energia_newton3.png"
     )
     print("=" * 50)
 
     # Gráficos de rendimiento
     plot_performance(
-        benchmark_file=f"{base_dir}benchmark_results.dat",
-        scaling_file=f"{base_dir}scaling_analysis.dat",
+        benchmark_file="benchmark_results.dat",
+        scaling_file="scaling_analysis.dat",
         output_png="performance_plots.png"
     )
 
