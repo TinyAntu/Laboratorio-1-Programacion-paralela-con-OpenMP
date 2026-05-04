@@ -386,7 +386,7 @@ TimingResult Benchmark::benchmarkParallel(int num_threads) {
     for (int r = 0; r < repetitions; ++r) {
         NBodySystem* sys = makeSystem();
         double t0 = omp_get_wtime();
-        sys->computeAccelerations();
+        sys->computeAccelerations(0);
         times.push_back(omp_get_wtime() - t0);
         delete sys;
     }
@@ -397,19 +397,24 @@ TimingResult Benchmark::benchmarkParallel(int num_threads) {
 std::vector<ScalingResult> Benchmark::runScalingAnalysis(
         const std::vector<int>& num_threads_list) {
 
-    TimingResult base = benchmarkSerial();
-    double T1    = base.mean;
-    double sigT1 = base.stddev;
-
     std::vector<ScalingResult> results;
     results.reserve(num_threads_list.size());
 
+    double T1 = 0.0;
+    double sigT1 = 0.0;
+
     for (int p : num_threads_list) {
         TimingResult tr = benchmarkParallel(p);
+        
+        if (p == 1) {
+            T1 = tr.mean;
+            sigT1 = tr.stddev;
+        }
+
         double Tp    = tr.mean;
         double sigTp = tr.stddev;
 
-        double Sp    = (Tp > 0.0) ? T1 / Tp : 0.0;
+        double Sp    = (Tp > 0.0 && T1 > 0.0) ? T1 / Tp : 0.0;
         double sigSp = (Tp > 0.0 && T1 > 0.0 && sigT1 > 0.0 && sigTp > 0.0)
                        ? speedupError(T1, sigT1, Tp, sigTp) : 0.0;
         double Ep    = (p > 0) ? Sp / p : 0.0;
