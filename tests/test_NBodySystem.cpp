@@ -42,6 +42,70 @@ TEST(NBodyPhysicsTest, ActionReaction) {
     EXPECT_NEAR(total_force_y, 0.0, 1e-9);
 }
 
+// Prueba de zeroAccelerations
+TEST(NBodyPhysicsTest, ZeroAccelerations) {
+    NBodySystem system(1.0, 0.1);
+    Particle p1(1.0, 0.0, 0.0);
+    p1.setAcceleration(5.0, -3.0);
+    system.addParticle(p1);
+    
+    Particle p2(2.0, 1.0, 1.0);
+    p2.setAcceleration(1.0, 1.0);
+    system.addParticle(p2);
+    
+    system.zeroAccelerations();
+    
+    for (const auto& p : system.getBodies()) {
+        EXPECT_DOUBLE_EQ(p.getAx(), 0.0);
+        EXPECT_DOUBLE_EQ(p.getAy(), 0.0);
+    }
+}
+
+// Prueba de tres cuerpos
+TEST(NBodyPhysicsTest, AnalyticalThreeBody) {
+    double G = 1.0;
+    double eps = 0.0; // Sin suavizado para cálculo exacto fácil si no hay colisiones
+    NBodySystem system(G, eps);
+    
+    // Triángulo equilátero
+    Particle p1(1.0, 0.0, 1.0);
+    Particle p2(1.0, -0.86602540378, -0.5);
+    Particle p3(1.0, 0.86602540378, -0.5);
+    
+    system.addParticle(p1);
+    system.addParticle(p2);
+    system.addParticle(p3);
+    
+    system.computeAccelerations();
+    
+    // Las fuerzas deben apuntar al centroide (0,0) por simetría
+    EXPECT_NEAR(system.getBodies()[0].getAx(), 0.0, 1e-5);
+    EXPECT_LT(system.getBodies()[0].getAy(), 0.0); // Atraído hacia abajo
+}
+
+// Test de regresión: Insensibilidad a una masa no nula
+TEST(NBodyPhysicsTest, RegressionMassSensitivity) {
+    double G = 1.0;
+    double eps = 0.1;
+    
+    NBodySystem sys_zero(G, eps);
+    sys_zero.addParticle(Particle(1.0, 0.0, 0.0));
+    sys_zero.addParticle(Particle(0.0, 1.0, 0.0)); // Masa cero
+    sys_zero.computeAccelerations();
+    
+    NBodySystem sys_mass(G, eps);
+    sys_mass.addParticle(Particle(1.0, 0.0, 0.0));
+    sys_mass.addParticle(Particle(10.0, 1.0, 0.0)); // Masa grande
+    sys_mass.computeAccelerations();
+    
+    // La partícula 0 debe sentir distinta aceleración en ambos sistemas
+    double ax_zero = sys_zero.getBodies()[0].getAx();
+    double ax_mass = sys_mass.getBodies()[0].getAx();
+    
+    EXPECT_NE(ax_zero, ax_mass);
+    EXPECT_DOUBLE_EQ(ax_zero, 0.0); // Con m2=0, la aceleración de p1 debe ser 0
+}
+
 // TEST DE INTEGRACIÓN: Consistencia Serial vs Paralelo
 // Verifica que todas las implementaciones de OpenMP den el mismo resultado que la secuencial
 TEST(NBodyIntegrationTest, ConsistencySerialVsParallel) {

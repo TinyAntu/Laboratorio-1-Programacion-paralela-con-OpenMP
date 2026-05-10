@@ -29,6 +29,13 @@ add_executable(nbody_app src/main.cpp)
 
 target_link_libraries(nbody_app PRIVATE nbody_core)
 
+# Copiar el script de graficación al directorio de construcción
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot.py
+    ${CMAKE_CURRENT_BINARY_DIR}/plot.py
+    COPYONLY
+)
+
 include(CTest)
 
 if(BUILD_TESTING)
