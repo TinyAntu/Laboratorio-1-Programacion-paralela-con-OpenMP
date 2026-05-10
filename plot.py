@@ -1,251 +1,596 @@
+#!/usr/bin/env python3
+"""
+Visualizacion de benchmarks N-Body (Lab 1, OpenMP).
+
+Genera:
+  - benchmark_schedules.png
+  - benchmark_synchronization.png
+  - benchmark_data_clauses.png
+  - benchmark_sync_advanced.png
+  - benchmark_scaling.png
+  - nbody_trajectories.png
+  - nbody_global_state.png
+  - nbody_energy_timeseries.png
+
+El script solo grafica datos ya generados por el programa C++.
+No recalcula metricas fisicas como centro de masa, radio RMS o energia.
+"""
+
+import re
 import os
 import numpy as np
-import pandas as pd
-import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
+import pandas as pd
+from io import StringIO
 
-if "DISPLAY" not in os.environ:
-    matplotlib.use("Agg")
 
-def plot_trajectories(filename: str = "trayectorias.dat",
-                      output_png: str = "trayectorias_nbody.png",
-                      output_gif: str = "simulacion_nbody.gif"):
-    """
-    Lee los datos espaciales y genera un gráfico estático y un GIF animado.
-    """
-    print(f"Procesando trayectorias desde '{filename}'...")
+SECTION_RE = re.compile(r'^#\s*(\d+)\.\s*(.+?)\s*$')
+
+
+def parse_dat_sections(filename):
+    """Parsea un .dat con secciones '# N. Nombre' seguidas de un header
+    '# col1 col2 ...' y filas de datos separadas por whitespace."""
+    sections = {}
     try:
-        # \s+ asegura que lea correctamente separaciones por uno o más espacios
-        df = pd.read_csv(filename, sep=r'\s+')
-        
-        # Gráfico estático
-        plt.figure(figsize=(8, 8))
-        for particle_id, group in df.groupby('ID'):
-            plt.plot(group['X'], group['Y'], label=f'Cuerpo {particle_id}')
-            # Marcar inicio (x) y fin (o)
-            plt.scatter(group['X'].iloc[0], group['Y'].iloc[0], marker='x', color='black')
-            plt.scatter(group['X'].iloc[-1], group['Y'].iloc[-1], marker='o', s=np.clip(group['Mass'].iloc[-1]*2, 20, 200))
-        
-        plt.title('Trayectorias Estáticas N-Cuerpos')
-        plt.xlabel('Coordenada X')
-        plt.ylabel('Coordenada Y')
-        plt.legend()
-        plt.grid(True, linestyle="--", alpha=0.6)
-        plt.axis('equal') # Para que el espacio no se vea estirado
-        
-        plt.savefig(output_png, dpi=300)
-        plt.close()
-
-        # Animación GIF
-        print("Generando animación GIF (esto puede tomar unos segundos)...")
-        fig, ax = plt.subplots(figsize=(8, 8))
-        
-        # Determinar límites de cámara dinámicamente con un poco de margen
-        margin = 5
-        x_min, x_max = df['X'].min() - margin, df['X'].max() + margin
-        y_min, y_max = df['Y'].min() - margin, df['Y'].max() + margin
-
-        def update(frame):
-            ax.clear()
-            current_step = df[df['Step'] == frame]
-            history = df[df['Step'] <= frame]
-            
-            # Dibujar el rastro (historial) de cada partícula
-            for pid in current_step['ID']:
-                p_history = history[history['ID'] == pid]
-                ax.plot(p_history['X'], p_history['Y'], alpha=0.4, linewidth=1.5)
-            
-            # Dibujar la posición actual
-            ax.scatter(current_step['X'], current_step['Y'], 
-                       s=np.clip(current_step['Mass']*5, 20, 300), 
-                       c=current_step['ID'], cmap='tab10', edgecolors='black', zorder=5)
-            
-            ax.set_title(f"Evolución N-Cuerpos (Paso {frame})")
-            ax.set_xlim(x_min, x_max)
-            ax.set_ylim(y_min, y_max)
-            ax.grid(True, linestyle="--", alpha=0.6)
-            ax.set_aspect('equal')
-            return ax.collections + ax.lines
-
-        # Filtrar frames si son muchos para que el GIF no tarde una eternidad
-        unique_steps = df['Step'].unique()
-        step_skip = max(1, len(unique_steps) // 150)
-        frames_to_plot = unique_steps[::step_skip]
-
-        anim = FuncAnimation(fig, update, frames=frames_to_plot, interval=50, blit=False)
-        anim.save(output_gif, writer=PillowWriter(fps=20))
-        plt.close()
-
+        with open(filename, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
     except FileNotFoundError:
-        print(f"Error: El archivo '{filename}' no existe. Asegúrate de correr la simulación en C++ primero.")
-    except Exception as e:
-        print(f"Error al procesar '{filename}': {e}")
+        print(f"[!] No se encontro {filename}")
+        return sections
 
-def plot_energy_conservation(filename: str = "energia.dat",
-                             output_png: str = "energia_nbody.png"):
-    """
-    Lee los datos de energía y genera un gráfico comprobando la conservación.
-    """
-    print(f"Procesando energías desde '{filename}'...")
+    current_name = None
+    current_header = None
+    current_rows = []
+
+    def flush():
+        if current_name and current_header and current_rows:
+            text = current_header + "\n" + "\n".join(current_rows)
+            try:
+                df = pd.read_csv(StringIO(text), sep=r'\s+', engine='python')
+                sections[current_name] = df
+            except Exception as e:
+                print(f"[!] Error parseando '{current_name}': {e}")
+
+    for raw in lines:
+        line = raw.rstrip('\n')
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        m = SECTION_RE.match(stripped)
+        if m:
+            flush()
+            current_name = m.group(2).strip()
+            current_header = None
+            current_rows = []
+            continue
+
+        if stripped.startswith('#'):
+            if current_name is not None and current_header is None:
+                current_header = stripped.lstrip('#').strip()
+            continue
+
+        if current_name is not None and current_header is not None:
+            current_rows.append(stripped)
+
+    flush()
+    return sections
+
+
+def read_simple_dat(filename):
+    """Lee archivos .dat simples con encabezado en la primera linea."""
+    if not os.path.exists(filename):
+        print(f"[!] No se encontro {filename}")
+        return None
+
     try:
-        df = pd.read_csv(filename, sep=r'\s+')
-        
-        plt.figure(figsize=(10, 6))
-        plt.plot(df['Step'], df['Kinetic'], label='Cinética (K)', color='blue', alpha=0.8)
-        plt.plot(df['Step'], df['Potential'], label='Potencial (U)', color='orange', alpha=0.8)
-        
-        # La energía total debería ser una línea recta horizontal (conservación)
-        plt.plot(df['Step'], df['Total'], label='Total (E = K + U)', color='black', linewidth=2, linestyle='--')
-        
-        plt.title('Conservación de Energía en la Simulación')
-        plt.xlabel('Pasos de Simulación')
-        plt.ylabel('Energía')
-        plt.legend()
-        plt.grid(True, linestyle="--", alpha=0.6)
-        plt.tight_layout()
-        
-        plt.savefig(output_png, dpi=300)
-        plt.close()
-        
-    except FileNotFoundError:
-        print(f"Error: El archivo '{filename}' no existe.")
+        df = pd.read_csv(filename, sep=r'\s+', engine='python')
+        print(f"[ok] Leido {filename}: {len(df)} filas")
+        return df
     except Exception as e:
-        print(f"Error al procesar '{filename}': {e}")
+        print(f"[!] Error leyendo {filename}: {e}")
+        return None
 
-def plot_performance(benchmark_file: str = "build/benchmark_results.dat",
-                     scaling_file: str = "build/scaling_analysis.dat",
-                     output_png: str = "performance_plots.png"):
+
+def first_existing_file(candidates):
+    for filename in candidates:
+        if os.path.exists(filename):
+            return filename
+    return None
+
+
+def plot_schedules(df, out='benchmark_schedules.png'):
+    """Tiempo vs chunk_size para static/dynamic/guided."""
+    fig, ax = plt.subplots(figsize=(9, 6))
+
+    for sched in ['static', 'dynamic', 'guided']:
+        sub = df[df['schedule_name'] == sched].sort_values('chunk_size')
+        if not sub.empty:
+            ax.errorbar(
+                sub['chunk_size'],
+                sub['mean_s'],
+                yerr=sub['stddev_s'],
+                marker='o',
+                capsize=4,
+                label=sched
+            )
+
+    defaults = df[df['schedule_name'].str.endswith('_default')]
+    for _, row in defaults.iterrows():
+        ax.axhline(
+            row['mean_s'],
+            linestyle='--',
+            alpha=0.4,
+            label=f"{row['schedule_name']} (sin chunk)"
+        )
+
+    ax.set_xscale('log', base=2)
+    ax.set_xlabel('chunk_size')
+    ax.set_ylabel('Tiempo medio (s)')
+    ax.set_title('Tiempo vs chunk_size por schedule OpenMP')
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def plot_bars(df, name_col, title, out):
+    """Barras genericas con barras de error."""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    names = df[name_col].astype(str).values
+    means = df['mean_s'].values
+    errs = df['stddev_s'].values
+
+    colors = plt.cm.viridis(np.linspace(0.15, 0.85, len(names)))
+    bars = ax.bar(
+        range(len(names)),
+        means,
+        yerr=errs,
+        capsize=5,
+        color=colors,
+        alpha=0.85,
+        edgecolor='black'
+    )
+
+    ax.set_xticks(range(len(names)))
+    ax.set_xticklabels(names, rotation=35, ha='right')
+    ax.set_ylabel('Tiempo medio (s)')
+    ax.set_title(title)
+    ax.grid(axis='y', alpha=0.3)
+
+    for bar, m in zip(bars, means):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f'{m:.4f}',
+            ha='center',
+            va='bottom',
+            fontsize=8
+        )
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def plot_scaling(df_scale, df_serial=None, out='benchmark_scaling.png'):
+    """Speedup, eficiencia y curva de Amdahl."""
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    ax1, ax2, ax3, ax4 = axes.flatten()
+
+    threads = df_scale['threads'].values
+
+    ax1.errorbar(
+        threads,
+        df_scale['Tp_mean'],
+        yerr=df_scale['Tp_stddev'],
+        marker='o',
+        capsize=4,
+        color='C0'
+    )
+    ax1.set_xlabel('Numero de threads')
+    ax1.set_ylabel('Tiempo (s)')
+    ax1.set_title('Tiempo de ejecucion vs threads')
+    ax1.grid(alpha=0.3)
+
+    ax2.errorbar(
+        threads,
+        df_scale['speedup'],
+        yerr=df_scale['speedup_err'],
+        marker='s',
+        capsize=4,
+        color='C1',
+        label='Speedup medido'
+    )
+    ax2.plot(threads, threads, 'k--', alpha=0.6, label='Ideal (S=p)')
+
+    if 'amdahl_speedup' in df_scale.columns:
+        ax2.plot(
+            threads,
+            df_scale['amdahl_speedup'],
+            'r-.',
+            label='Amdahl (f estimada)'
+        )
+
+    ax2.set_xlabel('Numero de threads')
+    ax2.set_ylabel('Speedup')
+    ax2.set_title('Speedup vs threads (con Amdahl)')
+    ax2.legend()
+    ax2.grid(alpha=0.3)
+
+    ax3.errorbar(
+        threads,
+        df_scale['efficiency'] * 100,
+        yerr=df_scale['eff_err'] * 100,
+        marker='^',
+        capsize=4,
+        color='C2'
+    )
+    ax3.axhline(100, color='r', linestyle='--', alpha=0.5, label='100%')
+    ax3.set_xlabel('Numero de threads')
+    ax3.set_ylabel('Eficiencia (%)')
+    ax3.set_title('Eficiencia vs threads')
+    ax3.set_ylim(0, 115)
+    ax3.legend()
+    ax3.grid(alpha=0.3)
+
+    if df_serial is not None and 'f_measured' in df_serial.columns:
+        ax4.plot(
+            df_serial['threads'],
+            df_serial['f_measured'],
+            marker='o',
+            label='f medida'
+        )
+        ax4.plot(
+            df_serial['threads'],
+            df_serial['f_amdahl'],
+            'r--',
+            label='f Amdahl (global)'
+        )
+        ax4.set_xlabel('Numero de threads')
+        ax4.set_ylabel('Fraccion serial f')
+        ax4.set_title('Fraccion serial: medida vs Amdahl')
+        ax4.set_yscale('log')
+        ax4.legend()
+        ax4.grid(alpha=0.3, which='both')
+    else:
+        ax4.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def select_body_ids(df_snapshots, max_bodies=12):
+    """Selecciona un subconjunto de cuerpos para no saturar el grafico."""
+    ids = np.sort(df_snapshots['ID'].unique())
+
+    if len(ids) <= max_bodies:
+        return ids
+
+    idx = np.linspace(0, len(ids) - 1, max_bodies, dtype=int)
+    return ids[idx]
+
+
+def plot_trajectories(df_snapshots, out='nbody_trajectories.png', max_bodies=12):
+    """Grafica trayectorias X-Y de un subconjunto de cuerpos."""
+    required = {'Step', 'ID', 'X', 'Y', 'Mass'}
+    if not required.issubset(df_snapshots.columns):
+        print(f"[!] snapshots.dat no tiene las columnas esperadas: {required}")
+        print(f"    columnas encontradas: {list(df_snapshots.columns)}")
+        return
+
+    selected_ids = select_body_ids(df_snapshots, max_bodies=max_bodies)
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+
+    colors = plt.cm.viridis(np.linspace(0.10, 0.90, len(selected_ids)))
+
+    for color, body_id in zip(colors, selected_ids):
+        sub = df_snapshots[df_snapshots['ID'] == body_id].sort_values('Step')
+
+        ax.plot(
+            sub['X'],
+            sub['Y'],
+            marker='o',
+            markersize=2,
+            linewidth=1.2,
+            alpha=0.85,
+            color=color,
+            label=f'ID {body_id}'
+        )
+
+        if not sub.empty:
+            first = sub.iloc[0]
+            last = sub.iloc[-1]
+
+            ax.scatter(
+                first['X'],
+                first['Y'],
+                marker='s',
+                s=28,
+                color=color,
+                edgecolor='black',
+                linewidth=0.4,
+                alpha=0.9
+            )
+
+            ax.scatter(
+                last['X'],
+                last['Y'],
+                marker='x',
+                s=40,
+                color=color,
+                linewidth=1.2,
+                alpha=0.95
+            )
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_title('Trayectorias X-Y de un subconjunto de cuerpos')
+    ax.grid(alpha=0.3)
+    ax.axis('equal')
+    ax.legend(fontsize=8, ncol=2)
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def plot_global_state(df_energy, out='nbody_global_state.png'):
     """
-    Lee los datos de benchmarks y escalabilidad para generar gráficos de rendimiento.
+    Grafica estado global usando columnas ya generadas por C++:
+      CenterOfMassX, CenterOfMassY, RMSRadius, MomentumMag, MinDistance.
     """
-    print(f"Procesando rendimiento desde '{benchmark_file}' y '{scaling_file}'...")
-    try:
-        # Gráficos de escalabilidad
-        if os.path.exists(scaling_file):
-            # Parsear el bloque de escalabilidad manualmente
-            threads, speedups, efficiencies = [], [], []
-            with open(scaling_file, 'r') as f:
-                in_scaling_block = False
-                for line in f:
-                    if line.startswith("# 5. Escalabilidad"):
-                        in_scaling_block = True
-                        continue
-                    if line.startswith("# 6. Fraccion serial"):
-                        in_scaling_block = False
-                        break
-                    
-                    if in_scaling_block and not line.startswith("#") and line.strip():
-                        parts = line.split()
-                        if len(parts) >= 8:
-                            threads.append(int(parts[0]))
-                            speedups.append(float(parts[3]))
-                            efficiencies.append(float(parts[5]))
+    required = {'Step', 'CenterOfMassX', 'CenterOfMassY', 'RMSRadius'}
+    if not required.issubset(df_energy.columns):
+        print(f"[!] energy_timeseries.dat no tiene las columnas esperadas: {required}")
+        print(f"    columnas encontradas: {list(df_energy.columns)}")
+        return
 
-            if threads:
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-                
-                # Speedup
-                ax1.plot(threads, speedups, marker='o', color='blue', label='Speedup medido')
-                ax1.plot(threads, threads, linestyle='--', color='gray', label='Speedup ideal')
-                ax1.set_title('Speedup vs Número de Hilos')
-                ax1.set_xlabel('Hilos')
-                ax1.set_ylabel('Speedup')
-                ax1.legend()
-                ax1.grid(True, linestyle='--', alpha=0.6)
+    df = df_energy.sort_values('Step')
 
-                # Eficiencia
-                ax2.plot(threads, efficiencies, marker='s', color='green', label='Eficiencia')
-                ax2.axhline(1.0, linestyle='--', color='gray', label='Eficiencia ideal')
-                ax2.set_title('Eficiencia vs Número de Hilos')
-                ax2.set_xlabel('Hilos')
-                ax2.set_ylabel('Eficiencia')
-                ax2.set_ylim([0, 1.1])
-                ax2.legend()
-                ax2.grid(True, linestyle='--', alpha=0.6)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    ax1, ax2, ax3, ax4 = axes.flatten()
 
-                plt.tight_layout()
-                plt.savefig(output_png, dpi=300)
-                plt.close()
-                print(f"Gráfico de rendimiento guardado en {output_png}")
-        else:
-            print(f"Error: No se encontró '{scaling_file}'")
-
-    except Exception as e:
-        print(f"Error al generar gráficos de rendimiento: {e}")
-
-if __name__ == "__main__":
-    print("--- Iniciando pipeline de visualización ---")
-
-    # Versión base
-    plot_trajectories(
-        filename="trayectorias_base.dat",
-        output_png="trayectorias_base.png",
-        output_gif="simulacion_base.gif"
-    )
-    print("-" * 30)
-    plot_energy_conservation(
-        filename="energia_base.dat",
-        output_png="energia_base.png"
-    )
-    print("=" * 50)
-
-    # Versión schedule
-    plot_trajectories(
-        filename="trayectorias_schedule.dat",
-        output_png="trayectorias_schedule.png",
-        output_gif="simulacion_schedule.gif"
-    )
-    print("-" * 30)
-    plot_energy_conservation(
-        filename="energia_schedule.dat",
-        output_png="energia_schedule.png"
-    )
-    print("=" * 50)
-
-    # Versión chunk
-    plot_trajectories(
-        filename="trayectorias_chunk.dat",
-        output_png="trayectorias_chunk.png",
-        output_gif="simulacion_chunk.gif"
-    )
-    print("-" * 30)
-    plot_energy_conservation(
-        filename="energia_chunk.dat",
-        output_png="energia_chunk.png"
-    )
-    print("=" * 50)
-
-    # Versión collapse
-    plot_trajectories(
-        filename="trayectorias_collapse.dat",
-        output_png="trayectorias_collapse.png",
-        output_gif="simulacion_collapse.gif"
-    )
-    print("-" * 30)
-    plot_energy_conservation(
-        filename="energia_collapse.dat",
-        output_png="energia_collapse.png"
-    )
-    print("=" * 50)
-    #version newton3
-    plot_trajectories(
-        filename="trayectorias_newton3.dat",
-        output_png="trayectorias_newton3.png",
-        output_gif="simulacion_newton3.gif"
-    )
-    print("-" * 30)
-    plot_energy_conservation(
-        filename="energia_newton3.dat",
-        output_png="energia_newton3.png"
-    )
-    print("=" * 50)
-
-    # Gráficos de rendimiento
-    plot_performance(
-        benchmark_file="benchmark_results.dat",
-        scaling_file="scaling_analysis.dat",
-        output_png="performance_plots.png"
+    ax1.plot(
+        df['Step'],
+        df['CenterOfMassX'],
+        marker='o',
+        linewidth=1.5,
+        markersize=3,
+        label='Centro de masa X'
     )
 
-    print("--- Proceso finalizado ---")
+    ax1.plot(
+        df['Step'],
+        df['CenterOfMassY'],
+        marker='s',
+        linewidth=1.5,
+        markersize=3,
+        label='Centro de masa Y'
+    )
+
+    ax1.set_xlabel('Step')
+    ax1.set_ylabel('Coordenada del centro de masa')
+    ax1.set_title('Evolución temporal del centro de masa')
+    ax1.grid(alpha=0.3)
+    ax1.legend()
+
+    ax2.plot(
+        df['Step'],
+        df['RMSRadius'],
+        marker='o',
+        linewidth=1.5,
+        markersize=3,
+        color='C1'
+    )
+    ax2.set_xlabel('Step')
+    ax2.set_ylabel('Radio RMS')
+    ax2.set_title('Evolucion del radio RMS')
+    ax2.grid(alpha=0.3)
+
+    if 'MomentumMag' in df.columns:
+        ax3.plot(
+            df['Step'],
+            df['MomentumMag'],
+            marker='^',
+            linewidth=1.5,
+            markersize=3,
+            color='C2'
+        )
+        ax3.set_xlabel('Step')
+        ax3.set_ylabel('|P|')
+        ax3.set_title('Magnitud del momento lineal total')
+        ax3.grid(alpha=0.3)
+    else:
+        ax3.axis('off')
+
+    if 'MinDistance' in df.columns:
+        ax4.plot(
+            df['Step'],
+            df['MinDistance'],
+            marker='s',
+            linewidth=1.5,
+            markersize=3,
+            color='C3'
+        )
+        ax4.set_xlabel('Step')
+        ax4.set_ylabel('Distancia minima')
+        ax4.set_title('Distancia minima entre cuerpos')
+        ax4.grid(alpha=0.3)
+    else:
+        ax4.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def plot_energy_timeseries(df_energy, out='nbody_energy_timeseries.png'):
+    """
+    Grafica K(t), U(t), E(t) y referencia E(0).
+    No recalcula energia: solo usa columnas generadas por C++.
+    """
+    required = {'Step', 'Kinetic', 'Potential', 'Total'}
+    if not required.issubset(df_energy.columns):
+        print(f"[!] energy_timeseries.dat no tiene las columnas esperadas: {required}")
+        print(f"    columnas encontradas: {list(df_energy.columns)}")
+        return
+
+    df = df_energy.sort_values('Step')
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 9), sharex=True)
+    ax1, ax2 = axes
+
+    ax1.plot(
+        df['Step'],
+        df['Kinetic'],
+        marker='o',
+        markersize=3,
+        linewidth=1.5,
+        label='Kinetic K(t)'
+    )
+    ax1.plot(
+        df['Step'],
+        df['Potential'],
+        marker='s',
+        markersize=3,
+        linewidth=1.5,
+        label='Potential U(t)'
+    )
+    ax1.plot(
+        df['Step'],
+        df['Total'],
+        marker='^',
+        markersize=3,
+        linewidth=1.5,
+        label='Total E(t)=K+U'
+    )
+
+    ax1.axhline(
+        df['Total'].iloc[0],
+        color='black',
+        linestyle='--',
+        alpha=0.6,
+        label='E(0)'
+    )
+
+    ax1.set_ylabel('Energia')
+    ax1.set_title('Energia cinetica, potencial y total en el tiempo')
+    ax1.grid(alpha=0.3)
+    ax1.legend()
+
+    ax2.plot(
+        df['Step'],
+        df['Total'],
+        marker='o',
+        markersize=3,
+        linewidth=1.5,
+        color='C3',
+        label='E(t)'
+    )
+    ax2.axhline(
+        df['Total'].iloc[0],
+        color='black',
+        linestyle='--',
+        alpha=0.6,
+        label='Referencia E(0)'
+    )
+    ax2.set_xlabel('Step')
+    ax2.set_ylabel('Energia total')
+    ax2.set_title('Deriva visual de la energia total respecto a E(0)')
+    ax2.grid(alpha=0.3)
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def main():
+    print(">> Generando visualizaciones de benchmarks...")
+
+    bench = parse_dat_sections('benchmark_results.dat')
+    print(f"   secciones en benchmark_results.dat: {list(bench.keys())}")
+
+    if 'Schedules' in bench:
+        plot_schedules(bench['Schedules'])
+
+    if 'Sincronizacion' in bench:
+        plot_bars(
+            bench['Sincronizacion'],
+            'method_name',
+            'Metodos de sincronizacion (atomic / critical / reduce)',
+            'benchmark_synchronization.png'
+        )
+
+    if 'Clausulas de datos' in bench:
+        plot_bars(
+            bench['Clausulas de datos'],
+            'clause_name',
+            'Clausulas de datos OpenMP',
+            'benchmark_data_clauses.png'
+        )
+
+    if 'Sincronizacion avanzada' in bench:
+        plot_bars(
+            bench['Sincronizacion avanzada'],
+            'variant_name',
+            'Sincronizacion avanzada (barrier/nowait/task/single)',
+            'benchmark_sync_advanced.png'
+        )
+
+    scale = parse_dat_sections('scaling_analysis.dat')
+    print(f"   secciones en scaling_analysis.dat: {list(scale.keys())}")
+
+    df_scale = scale.get('Escalabilidad')
+    df_serial = scale.get('Fraccion serial')
+
+    if df_scale is not None:
+        plot_scaling(df_scale, df_serial)
+
+    print(">> Generando visualizaciones fisicas del sistema...")
+
+    snapshots_file = first_existing_file([
+        'snapshots.dat',
+        'trajectories.dat',
+        'trayectorias.dat'
+    ])
+
+    energy_file = first_existing_file([
+        'energy_timeseries.dat',
+        'energia.dat'
+    ])
+
+    if snapshots_file is not None:
+        print(f"   archivo de posiciones: {snapshots_file}")
+        df_snapshots = read_simple_dat(snapshots_file)
+
+        if df_snapshots is not None:
+            plot_trajectories(df_snapshots)
+    else:
+        print("[!] No se encontro snapshots.dat, trajectories.dat ni trayectorias.dat")
+
+    if energy_file is not None:
+        print(f"   archivo de energia/metricas globales: {energy_file}")
+        df_energy = read_simple_dat(energy_file)
+
+        if df_energy is not None:
+            plot_global_state(df_energy)
+            plot_energy_timeseries(df_energy)
+    else:
+        print("[!] No se encontro energy_timeseries.dat ni energia.dat")
+
+    print(">> Listo.")
+
+
+if __name__ == '__main__':
+    main()

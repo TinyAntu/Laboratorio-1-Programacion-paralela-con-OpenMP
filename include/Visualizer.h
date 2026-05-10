@@ -2,6 +2,8 @@
 #define VISUALIZER_H
 
 #include "Particle.h"
+#include "MetricsCalculator.h"
+
 #include <string>
 #include <vector>
 
@@ -11,17 +13,24 @@ private:
     std::string energy_file;
 
 public:
-    // Constructor independiente del sistema "HAY QUE CAMBIAR NOMBRES"
-    Visualizer(const std::string& traj_f = "trayectorias.dat", 
-               const std::string& ener_f = "energia.dat");
+    Visualizer(const std::string& traj_f = "snapshots.dat",
+               const std::string& ener_f = "energy_timeseries.dat");
 
     void clearFiles();
-    
-    // Recibe las partículas explícitamente
+
     void saveState(int step, const std::vector<Particle>& bodies);
-    
-    // Recibe los valores de energía explícitamente
-    void saveEnergy(int step, double kinetic, double potential);
+
+    void saveEnergy(int step, const SystemMetrics& metrics);
+
+    void runAll(
+        int N,
+        unsigned int seed,
+        double G,
+        double softening,
+        double dt,
+        int steps,
+        int sample_every
+    );
 };
 
 #endif // VISUALIZER_H
