@@ -114,7 +114,6 @@ void NBodySimulator::processBodies() {
 void NBodySimulator::integrateEuler(int sync_type) {
     system->zeroAccelerations();
     system->computeAccelerations();
-    calculateEnergy();
 
     std::vector<Particle>& bodies = system->getBodies();
     int n = static_cast<int>(bodies.size());
@@ -164,6 +163,8 @@ void NBodySimulator::integrateEuler(int sync_type) {
         throw std::invalid_argument(
             "sync_type invalido: use 0=atomic, 1=critical, 2=nowait");
     }
+
+    calculateEnergy();
 }
 
 void NBodySimulator::integrateEuler(int sync_type, bool use_barrier) {

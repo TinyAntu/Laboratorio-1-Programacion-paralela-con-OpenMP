@@ -20,6 +20,8 @@ void NBodySystem::zeroAccelerations() {
 }
 
 void NBodySystem::computeAccelerations() {
+    zeroAccelerations();
+
     // Implementación secuencial
     int n = bodies.size();
     for (int i = 0; i < n; ++i) {
