@@ -17,7 +17,7 @@ De acuerdo a lo solicitado en el punto 2 del enunciado, a continuación se detal
 
 ### 2. URL del Repositorio
 El código fuente y el historial de versiones se encuentran en:
-[https://github.com/sebadelaf/Laboratorio-1-SD](https://github.com/sebadelaf/Laboratorio-1-SD)
+https://github.com/TinyAntu/Laboratorio-1-Programacion-paralela-con-OpenMP.git
 
 ### 3. Instrucciones de Compilación local
 
@@ -59,12 +59,11 @@ Para repetir los experimentos y generar los resultados presentados en el reporte
 
 #### 5.1 Parámetros por Defecto
 El simulador está configurado en `src/main.cpp` con los siguientes parámetros base:
-- **Número de cuerpos (N):** 500
+- **Número de cuerpos (N):** 1000
 - **Semilla (Seed):** 42 (para reproducibilidad)
 - **Paso temporal ($\Delta t$):** 0.01
 - **Constante gravitacional (G):** 1.0
-- **Suavizado ($\epsilon$):** 0.5
-- **Pasos totales:** 1000
+- **Pasos totales:** 500
 
 #### 5.2 Ejecución del Simulador
 Ejecute el binario principal para generar los archivos de datos (`.dat`):
