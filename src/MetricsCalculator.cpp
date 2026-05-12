@@ -3,6 +3,7 @@
 #include <limits>
 #include <omp.h>
 
+// Calcula la energía cinética total del sistema
 double MetricsCalculator::calculateKineticEnergy(
         const std::vector<Particle>& bodies) const {
     double K = 0.0;
@@ -14,6 +15,7 @@ double MetricsCalculator::calculateKineticEnergy(
     return K;
 }
 
+// Calcula la energía potencial gravitacional total del sistema
 double MetricsCalculator::calculatePotentialEnergy(
         const std::vector<Particle>& bodies, double G, double softening) const {
     double U = 0.0;
@@ -31,11 +33,13 @@ double MetricsCalculator::calculatePotentialEnergy(
     return U;
 }
 
+// Calcula la energía total del sistema (cinética + potencial)
 double MetricsCalculator::calculateTotalEnergy(
         const std::vector<Particle>& bodies, double G, double softening) const {
     return calculateKineticEnergy(bodies) + calculatePotentialEnergy(bodies, G, softening);
 }
 
+// Calcula el momento lineal total del sistema (componentes x, y)
 std::array<double, 2> MetricsCalculator::calculateLinearMomentum(
         const std::vector<Particle>& bodies) const {
     double Px = 0.0, Py = 0.0;
@@ -46,6 +50,7 @@ std::array<double, 2> MetricsCalculator::calculateLinearMomentum(
     return {Px, Py};
 }
 
+// Calcula el centro de masa del sistema
 std::array<double, 2> MetricsCalculator::calculateCenterOfMass(
         const std::vector<Particle>& bodies) const {
     double Mx = 0.0, My = 0.0, M = 0.0;
@@ -59,6 +64,7 @@ std::array<double, 2> MetricsCalculator::calculateCenterOfMass(
     return {Mx / M, My / M};
 }
 
+// Calcula el radio RMS (raíz cuadrática media) del sistema respecto al centro de masa
 double MetricsCalculator::calculateRMSRadius(
         const std::vector<Particle>& bodies) const {
     auto cm  = calculateCenterOfMass(bodies);
@@ -74,6 +80,7 @@ double MetricsCalculator::calculateRMSRadius(
     return std::sqrt(rms2 / M);
 }
 
+// Calcula la distancia mínima entre cualquier par de partículas
 double MetricsCalculator::calculateMinDistance(
         const std::vector<Particle>& bodies) const {
     int n = static_cast<int>(bodies.size());
@@ -89,6 +96,7 @@ double MetricsCalculator::calculateMinDistance(
     return dmin;
 }
 
+// Calcula todas las métricas del sistema en una sola llamada
 SystemMetrics MetricsCalculator::calculateAll(
         const std::vector<Particle>& bodies, double G, double softening) const {
     SystemMetrics m;
@@ -110,9 +118,7 @@ SystemMetrics MetricsCalculator::calculateAll(
     return m;
 }
 
-// Acá hay que quitar los parámetros de selección de método y solo usar el de reudcción
-// En todos los metodos paralelos en realidad
-
+// Calcula la energía cinética en paralelo (method: 0=reduce, 1=atomic)
 double MetricsCalculator::calculateKineticEnergyParallel(
         const std::vector<Particle>& bodies, int method) const {
     int n = static_cast<int>(bodies.size());
@@ -140,6 +146,7 @@ double MetricsCalculator::calculateKineticEnergyParallel(
     return K;
 }
 
+// Calcula la energía potencial en paralelo (method: 0=reduce, 1=atomic)
 double MetricsCalculator::calculatePotentialEnergyParallel(
         const std::vector<Particle>& bodies,
         double G, double softening, int method) const {
@@ -175,6 +182,7 @@ double MetricsCalculator::calculatePotentialEnergyParallel(
     return U;
 }
 
+// Calcula la energía cinética en paralelo usando variables privadas locales
 double MetricsCalculator::calculateKineticEnergyParallel(
         const std::vector<Particle>& bodies, int method, bool use_private) const {
     if (!use_private) {
@@ -203,6 +211,7 @@ double MetricsCalculator::calculateKineticEnergyParallel(
     return K;
 }
 
+// Calcula todas las métricas usando la cláusula firstprivate
 SystemMetrics MetricsCalculator::calculateMetricsFirstprivate(
         const std::vector<Particle>& bodies, double G, double softening) const {
     int n = static_cast<int>(bodies.size());
@@ -250,6 +259,7 @@ SystemMetrics MetricsCalculator::calculateMetricsFirstprivate(
     return m;
 }
 
+// Calcula todas las métricas usando la cláusula lastprivate
 SystemMetrics MetricsCalculator::calculateFinalStateLastprivate(
         const std::vector<Particle>& bodies, double G, double softening) const {
     int n = static_cast<int>(bodies.size());

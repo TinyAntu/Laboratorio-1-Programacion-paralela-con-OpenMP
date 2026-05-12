@@ -8,6 +8,7 @@
 #include <iostream>
 #include <algorithm>
 
+// Constructor del benchmarking, inicializa los parámetros para ejecutar mediciones de rendimiento
 Benchmark::Benchmark(int N, unsigned int seed, double G,
                      double softening, double dt, int repetitions)
     : N_bodies(N), seed(seed), G_const(G),
@@ -19,16 +20,19 @@ Benchmark::Benchmark(int N, unsigned int seed, double G,
         throw std::invalid_argument("N debe ser >= 2");
 }
 
+// Crea una nueva instancia del simulador de cuerpos con los parámetros configurados
 NBodySimulator* Benchmark::makeSimulator() const {
     return new NBodySimulator(N_bodies, seed, G_const, softening, dt);
 }
 
+// Crea un nuevo sistema de cuerpos inicializado desde una semilla determinística
 NBodySystem* Benchmark::makeSystem() const {
     NBodySystem* sys = new NBodySystem(G_const, softening);
     sys->loadFromSeed(seed, N_bodies);
     return sys;
 }
 
+// Calcula estadísticas (media y desviación estándar) a partir de un vector de tiempos medidos
 TimingResult Benchmark::computeStats(const std::vector<double>& times) const {
     int n = static_cast<int>(times.size());
     double sum = std::accumulate(times.begin(), times.end(), 0.0);
@@ -39,6 +43,7 @@ TimingResult Benchmark::computeStats(const std::vector<double>& times) const {
     return {mean, stddev, n};
 }
 
+// Calcula el error en el speedup usando propagación de errores
 double Benchmark::speedupError(double T1, double sigT1,
                                 double Tp, double sigTp) const {
     double Sp = T1 / Tp;
@@ -46,6 +51,7 @@ double Benchmark::speedupError(double T1, double sigT1,
                           (sigTp / Tp) * (sigTp / Tp));
 }
 
+// Mide el tiempo del bucle serial puro (sin paralelización) para estimar overhead de OpenMP
 double Benchmark::measurePureSerialLoop() const {
     NBodySystem* sys = makeSystem();
     sys->computeAccelerations();
@@ -64,6 +70,7 @@ double Benchmark::measurePureSerialLoop() const {
     return elapsed;
 }
 
+// Mide el tiempo de ejecución con OpenMP configurado a un número específico de threads
 double Benchmark::measureOpenMPLoop(int num_threads) const {
     NBodySystem* sys = makeSystem();
 
@@ -77,6 +84,7 @@ double Benchmark::measureOpenMPLoop(int num_threads) const {
     return elapsed;
 }
 
+// Realiza un benchmark del tipo de schedule especificado (static/dynamic/guided)
 TimingResult Benchmark::benchmarkSchedule(int schedule_type) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -91,6 +99,7 @@ TimingResult Benchmark::benchmarkSchedule(int schedule_type) {
     return computeStats(times);
 }
 
+// Realiza un benchmark de schedule con tamaño de chunk específico
 TimingResult Benchmark::benchmarkScheduleChunk(int schedule_type, int chunk_size) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -105,6 +114,7 @@ TimingResult Benchmark::benchmarkScheduleChunk(int schedule_type, int chunk_size
     return computeStats(times);
 }
 
+// Benchmark completo de todos los tipos de schedule (static, dynamic, guided)
 std::vector<ScheduleResult> Benchmark::benchmarkAllSchedules(
         const std::vector<int>& chunk_sizes) {
 
@@ -124,6 +134,7 @@ std::vector<ScheduleResult> Benchmark::benchmarkAllSchedules(
     return results;
 }
 
+// Realiza un benchmark de distintos métodos de sincronización
 TimingResult Benchmark::benchmarkSync(int sync_type) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -138,6 +149,7 @@ TimingResult Benchmark::benchmarkSync(int sync_type) {
     return computeStats(times);
 }
 
+// Benchmark de sincronización que prueba con y sin barreras explícitas
 TimingResult Benchmark::benchmarkSyncBarrier(int sync_type, bool use_barrier) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -152,6 +164,7 @@ TimingResult Benchmark::benchmarkSyncBarrier(int sync_type, bool use_barrier) {
     return computeStats(times);
 }
 
+// Benchmark del cálculo de energía del sistema con distintos métodos de reducción
 TimingResult Benchmark::benchmarkEnergyMethod(int method) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -167,6 +180,7 @@ TimingResult Benchmark::benchmarkEnergyMethod(int method) {
     return computeStats(times);
 }
 
+// Benchmark de energía comparando variables privadas vs compartidas
 TimingResult Benchmark::benchmarkEnergyMethodPrivate(int method, bool use_private) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -182,6 +196,7 @@ TimingResult Benchmark::benchmarkEnergyMethodPrivate(int method, bool use_privat
     return computeStats(times);
 }
 
+// Benchmark completo de todos los métodos de sincronización
 std::vector<SyncResult> Benchmark::benchmarkAllSyncMethods() {
     std::vector<SyncResult> results;
 
@@ -198,6 +213,7 @@ std::vector<SyncResult> Benchmark::benchmarkAllSyncMethods() {
     return results;
 }
 
+// Benchmark de acceso a datos compartidos (data sharing benchmark)
 TimingResult Benchmark::benchmarkSharedAccess() {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -213,6 +229,7 @@ TimingResult Benchmark::benchmarkSharedAccess() {
     return computeStats(times);
 }
 
+// Benchmark de acceso a datos privados (private data sharing)
 TimingResult Benchmark::benchmarkPrivateAccess() {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -228,6 +245,7 @@ TimingResult Benchmark::benchmarkPrivateAccess() {
     return computeStats(times);
 }
 
+// Benchmark de cláusula firstprivate
 TimingResult Benchmark::benchmarkFirstprivate() {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -248,6 +266,7 @@ TimingResult Benchmark::benchmarkFirstprivate() {
     return computeStats(times);
 }
 
+// Benchmark de cláusula lastprivate
 TimingResult Benchmark::benchmarkLastprivate() {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -268,6 +287,7 @@ TimingResult Benchmark::benchmarkLastprivate() {
     return computeStats(times);
 }
 
+// Benchmark completo de todas las cláusulas de datos (data sharing)
 std::vector<DataClauseResult> Benchmark::benchmarkAllDataClauses() {
     return {
         {"shared",       benchmarkSharedAccess()},
@@ -277,6 +297,7 @@ std::vector<DataClauseResult> Benchmark::benchmarkAllDataClauses() {
     };
 }
 
+// Benchmark del impacto de barreras explícitas
 TimingResult Benchmark::benchmarkBarrier(bool use_barrier) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -291,6 +312,7 @@ TimingResult Benchmark::benchmarkBarrier(bool use_barrier) {
     return computeStats(times);
 }
 
+// Benchmark de paralelización con tasks vs parallel for
 TimingResult Benchmark::benchmarkTask(int task_type) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -306,6 +328,7 @@ TimingResult Benchmark::benchmarkTask(int task_type) {
     return computeStats(times);
 }
 
+// Benchmark de impacto de la cláusula single en estructuras de tasks
 TimingResult Benchmark::benchmarkTaskWithSingle(int task_type, bool use_single) {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -321,6 +344,7 @@ TimingResult Benchmark::benchmarkTaskWithSingle(int task_type, bool use_single) 
     return computeStats(times);
 }
 
+// Benchmark de inicialización paralela con cláusula single
 TimingResult Benchmark::benchmarkSingle() {
     std::vector<double> times;
     times.reserve(repetitions);
@@ -335,6 +359,7 @@ TimingResult Benchmark::benchmarkSingle() {
     return computeStats(times);
 }
 
+// Benchmark completo de sincronización avanzada
 std::vector<AdvSyncResult> Benchmark::benchmarkAllAdvancedSync() {
     std::vector<AdvSyncResult> results;
 
@@ -362,6 +387,7 @@ std::vector<AdvSyncResult> Benchmark::benchmarkAllAdvancedSync() {
     return results;
 }
 
+// Benchmark de ejecución serial (sin paralelización)
 TimingResult Benchmark::benchmarkSerial(int num_threads) {
     omp_set_num_threads(num_threads);
 
@@ -378,6 +404,7 @@ TimingResult Benchmark::benchmarkSerial(int num_threads) {
     return computeStats(times);
 }
 
+// Benchmark de ejecución paralela con OpenMP
 TimingResult Benchmark::benchmarkParallel(int num_threads) {
     omp_set_num_threads(num_threads);
 
@@ -394,6 +421,7 @@ TimingResult Benchmark::benchmarkParallel(int num_threads) {
     return computeStats(times);
 }
 
+// Análisis de escalabilidad: calcula speedup y eficiencia para distintos números de threads
 std::vector<ScalingResult> Benchmark::runScalingAnalysis(
         const std::vector<int>& num_threads_list) {
 
@@ -425,6 +453,7 @@ std::vector<ScalingResult> Benchmark::runScalingAnalysis(
     return results;
 }
 
+// Mide la fracción serial y paralela de la ejecución
 SerialParallelBreakdown Benchmark::measureSerialParallelBreakdown(
         int num_threads,
         const std::vector<ScalingResult>& scaling) {
@@ -493,10 +522,12 @@ SerialParallelBreakdown Benchmark::measureSerialParallelBreakdown(
     return bd;
 }
 
+// Calcula el speedup teórico según la ley de Amdahl
 double Benchmark::amdahlSpeedup(int p, double f) const {
     return 1.0 / (f + (1.0 - f) / static_cast<double>(p));
 }
 
+// Estima la fracción serial (f) del código invirtiendo la ley de Amdahl
 double Benchmark::estimateSerialFraction(
         const std::vector<ScalingResult>& scaling) const {
     double sum_f = 0.0;
@@ -514,6 +545,7 @@ double Benchmark::estimateSerialFraction(
     return (count > 0) ? sum_f / count : 0.0;
 }
 
+// Guarda todos los resultados de benchmark en un archivo de texto
 void Benchmark::saveBenchmarkResults(
         const std::vector<ScheduleResult>&   schedule_results,
         const std::vector<SyncResult>&       sync_results,
@@ -567,6 +599,7 @@ void Benchmark::saveBenchmarkResults(
     std::cout << "[Benchmark] benchmark_results guardados en " << filename << "\n";
 }
 
+// Guarda el análisis de escalabilidad en un archivo
 void Benchmark::saveScalingAnalysis(
         const std::vector<ScalingResult>&           scaling,
         const std::vector<SerialParallelBreakdown>& breakdowns,
@@ -613,32 +646,38 @@ void Benchmark::saveScalingAnalysis(
     std::cout << "[Benchmark] scaling_analysis guardado en " << filename << "\n";
 }
 
+// Ejecuta benchmarks de schedules con tamaños de chunk por defecto
 std::vector<ScheduleResult> Benchmark::runScheduleBenchmarks() {
     static const std::vector<int> default_chunks = {1, 4, 8, 16, 32, 64};
     return runScheduleBenchmarks(default_chunks);
 }
 
+// Ejecuta benchmarks de schedules con tamaños de chunk personalizados
 std::vector<ScheduleResult> Benchmark::runScheduleBenchmarks(
         const std::vector<int>& chunk_sizes) {
     std::cout << "[Benchmark] 1. Schedules...\n";
     return benchmarkAllSchedules(chunk_sizes);
 }
 
+// Ejecuta benchmarks de sincronización (atomic, critical, nowait, etc)
 std::vector<SyncResult> Benchmark::runSyncBenchmarks() {
     std::cout << "[Benchmark] 2. Sincronizacion...\n";
     return benchmarkAllSyncMethods();
 }
 
+// Ejecuta benchmarks de cláusulas de datos (shared, private, firstprivate, lastprivate)
 std::vector<DataClauseResult> Benchmark::runDataClauseBenchmarks() {
     std::cout << "[Benchmark] 3. Clausulas de datos...\n";
     return benchmarkAllDataClauses();
 }
 
+// Ejecuta benchmarks de sincronización avanzada (tasks, barriers, etc)
 std::vector<AdvSyncResult> Benchmark::runAdvancedSyncBenchmarks() {
     std::cout << "[Benchmark] 4. Sincronizacion avanzada...\n";
     return benchmarkAllAdvancedSync();
 }
 
+// Ejecuta análisis completo de escalabilidad del 1 al máximo de threads
 ScalingPhaseResult Benchmark::runScalingBenchmarks(int max_threads_override) {
     std::cout << "[Benchmark] 5. Escalabilidad...\n";
 
@@ -677,6 +716,7 @@ ScalingPhaseResult Benchmark::runScalingBenchmarks(int max_threads_override) {
     return {scaling, breakdowns, f_amdahl};
 }
 
+// Ejecuta todos los benchmarks: schedules, sincronización, datos, sincronización avanzada y escalabilidad
 void Benchmark::runAll(int max_threads_override) {
     std::cout << "[Benchmark] N=" << N_bodies
               << "  rep=" << repetitions << "\n";
