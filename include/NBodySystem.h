@@ -38,6 +38,11 @@ public:
     int getCount() const; 
     double getG() const;
     double getSoftening() const;
+
+    // Metodos Cuda Lab2
+    void computeAccelerationsGPU();
+    void computeAccelerationsGPU(int variant); // 0 = basico, 1 = shared memory
+    void computeAccelerationsGPU(int variant, int block_size); // 0 = basico, 1 = shared memory
 };
 
 #endif // NBODYSYSTEM_H
