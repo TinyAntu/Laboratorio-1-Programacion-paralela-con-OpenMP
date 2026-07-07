@@ -11,3 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -Archivos basicos necesarios (CudaBuffer)
 -Declaracion de metodos minimos necesarios (dentro de NBodySystem, NBodySimulator, Benchmark)
+
+## [1.1.0] 07-07-2026
+
+### Added
+
+-Agentes de Documentacion, Bugs y Merge request
