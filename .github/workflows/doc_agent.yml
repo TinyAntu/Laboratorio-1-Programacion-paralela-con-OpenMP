@@ -1,0 +1,36 @@
+name: Agente Documentador IA
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Se ejecuta todos los lunes a las 00:00 (evaluar si mantener esto o no)
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  run-doc-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install -r scripts/agents/requirements.txt
+
+      - name: Ejecutar Agente Documentador
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 
+        run: python scripts/agents/doc_agent.py

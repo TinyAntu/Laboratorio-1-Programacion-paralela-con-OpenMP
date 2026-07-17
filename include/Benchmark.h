@@ -118,6 +118,11 @@ public:
 
     TimingResult benchmarkParallel(int num_threads);
 
+    //METODOS CUDA LAB2
+    TimingResult benchmarkKernelOnly(); //tiempo del kernel (sync incluida en la medici ́on host)
+    TimingResult benchmarkEndToEnd(); //incluye transferencias del paso
+    TimingResult compareCpuGpu(int n_bodies);
+
     std::vector<ScalingResult> runScalingAnalysis(
             const std::vector<int>& num_threads_list);
 

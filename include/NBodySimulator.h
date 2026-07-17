@@ -48,6 +48,10 @@ public:
 
     NBodySystem& getSystem(); //Para los test
 
+    //METODOS CUDA LAB2
+    void stepEulerGpu();
+    void calculateEnergyGpu();
+    void calculateEnergyGpu(int method); // 0=reduccion, 1 = atomicAdd
 };
 
 #endif // NBODYSIMULATOR_H
