@@ -6,7 +6,7 @@ from github import Github
 def evaluar_diff_pr_con_ia(diff_texto):
     api_key = os.getenv("GEMINI_API_KEY")
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
     Eres un Agente Revisor de Merge Requests para un proyecto CUDA.

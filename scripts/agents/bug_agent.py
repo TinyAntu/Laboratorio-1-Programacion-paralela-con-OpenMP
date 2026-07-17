@@ -7,7 +7,7 @@ from github import Github
 def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     api_key = os.getenv("GEMINI_API_KEY")
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
     Eres un Agente Revisor de Bugs para código C++/CUDA de un simulador N-cuerpos.

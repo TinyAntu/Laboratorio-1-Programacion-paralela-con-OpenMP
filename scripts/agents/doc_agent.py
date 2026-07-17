@@ -14,7 +14,7 @@ def analizar_texto_con_ia(contenido_archivo):
         exit(1)
         
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
     Eres un Agente Documentador para un proyecto de simulador N-cuerpos en CUDA.

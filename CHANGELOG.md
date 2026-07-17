@@ -36,3 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 -Se cambio la version de python para evitar warning
 -Se cambio el modelo de IA a latest
+
+## [1.1.4] 17-07-2026
+
+### Changed
+
+-Cambio de requirements para no especificar versionado
