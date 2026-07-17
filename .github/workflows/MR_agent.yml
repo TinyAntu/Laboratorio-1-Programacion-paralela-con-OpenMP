@@ -2,7 +2,10 @@ name: Agente Revisor de MR IA
 
 on:
   pull_request:
-    [cite_start]types: [opened, synchronize, reopened] # Se dispara al abrir o actualizar PR 
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: read

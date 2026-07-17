@@ -17,3 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 -Agentes de Documentacion, Bugs y Merge request
+
+## [1.1.1] 17-07-2026
+
+### Fixed
+
+-Error de typeo dentro del agente MR
