@@ -31,4 +31,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: python scripts/agents/mr_agent.py
+        run: python scripts/agents/MR_agent.py
