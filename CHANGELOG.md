@@ -29,3 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 -Error de typeo dentro del agente MR
+
+## [1.1.3] 17-07-2026
+
+### Changed
+
+-Se cambio la version de python para evitar warning
+-Se cambio el modelo de IA a latest
