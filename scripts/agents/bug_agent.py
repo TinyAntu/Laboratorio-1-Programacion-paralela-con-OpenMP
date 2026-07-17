@@ -1,13 +1,14 @@
 import os
 import json
 import uuid
-import google.generativeai as genai
 from github import Github
+from google import genai 
 
 def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     api_key = os.getenv("GEMINI_API_KEY")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    if not api_key:
+        return {"encontro_bug": False}
+    client = genai.Client(api_key=api_key)
     
     prompt = f"""
     Eres un Agente Revisor de Bugs para código C++/CUDA de un simulador N-cuerpos.
@@ -29,20 +30,27 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     {contenido_codigo}
     """
     
-    response = model.generate_content(prompt)
     try:
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
     except Exception:
         return {"encontro_bug": False}
 
 def main():
-    token = os.getenv("GHCR_TOKEN")
+    token = os.getenv("GITHUB_TOKEN")
     repo_name = os.getenv("GITHUB_REPOSITORY")
+    
+    if not token or not repo_name:
+        print("Error: Faltan variables de entorno de GitHub.")
+        exit(1)
+
     g = Github(token)
     repo = g.get_repo(repo_name)
     
-    # Revisar archivos de la carpeta kernels/
     try:
         archivos_cuda = repo.get_contents("kernels")
     except Exception:
@@ -58,9 +66,8 @@ def main():
             if not analisis.get("encontro_bug", False):
                 continue
                 
-            print(f"Bug detectado en {archivo.name}.")
+            print(f"⚠️ Bug detectado en {archivo.name}.")
             
-            # Logica de fix mecanico 
             if analisis.get("es_mecanico", False):
                 rama_base = repo.get_branch("main")
                 nueva_rama = f"auto-fix-bug-{uuid.uuid4().hex[:6]}"
@@ -82,7 +89,6 @@ def main():
                 )
                 print(f"MR mecánico creado: {pr.html_url}")
                 
-            # Crear Issue 
             else:
                 issue = repo.create_issue(
                     title=f"Bug lógico en {archivo.name}",

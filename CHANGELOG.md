@@ -42,3 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 -Cambio de requirements para no especificar versionado
+
+## [1.1.5] 17-07-2026
+
+### Changed
+
+-Cambio de libreria de googleIA
