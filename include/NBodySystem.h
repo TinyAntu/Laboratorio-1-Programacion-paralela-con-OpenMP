@@ -13,8 +13,20 @@ private:
     double G_const;
     double softening_eps;
 
+    // Lab2: estado GPU opaco (buffers SoA en device). Se define en
+    // src/NBodySystemGpu.cu para que este header no dependa de tipos CUDA
+    // en builds solo-CPU. Se crea perezosamente en la primera llamada GPU.
+    struct GpuState;
+    GpuState* gpu_state = nullptr;
+
 public:
     NBodySystem(double G, double epsilon);
+    ~NBodySystem();
+
+    // Dueño único del estado GPU: no copiable
+    NBodySystem(const NBodySystem&) = delete;
+    NBodySystem& operator=(const NBodySystem&) = delete;
+
     void addParticle(const Particle& p);
     void zeroAccelerations();
 
