@@ -78,6 +78,31 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test python3 plo
 
 Esto generará las figuras del informe (incluyendo análisis de Speedup, Amdahl, blockDim y trayectorias físicas).
 
+### 5.4 Lab 2: Soporte GPU (CUDA)
+
+El Lab 2 porta el cálculo de aceleraciones a GPU. El build CUDA es **opcional** y se autodetecta: si no hay CUDA Toolkit, el proyecto compila igual que en el Lab 1.
+
+```bash
+# Build con CUDA (requiere CUDA Toolkit >= 12 y una GPU NVIDIA)
+cmake -B build -DENABLE_CUDA=ON
+cmake --build build --parallel
+./build/nbody_gpu_tests   # tests de la capa GPU
+
+# Build solo CPU (comportamiento del Lab 1 / CI)
+cmake -B build -DENABLE_CUDA=OFF
+```
+
+En el clúster DIINF fijar la arquitectura de la GPU del nodo, por ejemplo:
+`cmake -B build -DCMAKE_CUDA_ARCHITECTURES=75`
+
+**Esquema de transferencias por paso** (Euler se integra en host según el enunciado):
+- Masas: H2D **una sola vez** (no cambian durante la simulación).
+- Posiciones (x, y): H2D en cada paso (el host las actualiza con drift).
+- Aceleraciones (ax, ay): D2H en cada paso (las produce el kernel).
+- Velocidades: **nunca** tocan el device (solo las usa el host en kick).
+
+El layout en device es **SoA** (`d_mass`, `d_x`, `d_y`, `d_ax`, `d_ay`) para favorecer accesos coalesced. GPU usada en desarrollo local: NVIDIA GeForce GTX 1660 SUPER (sm_75, driver 596.36); las mediciones finales se ejecutan en el nodo GPU del clúster DIINF (documentar nodo, GPU, driver y versión de CUDA en cada corrida).
+
 ---
 
 ### 6. Consideraciones Técnicas y Físicas
