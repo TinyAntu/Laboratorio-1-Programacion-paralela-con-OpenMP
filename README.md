@@ -1,91 +1,103 @@
-# Laboratorio 1: Programación paralela con OpenMP
-## Simulador gravitatorio N-cuerpos en 2D (C++)
+# Laboratorio 2: Programación GPGPU con CUDA
+## Simulador gravitatorio N-cuerpos en 2D (C++/CUDA)
 
-Este proyecto implementa un simulador gravitatorio de N-cuerpos en el plano utilizando C++ y OpenMP para la paralelización. El sistema integra física newtoniana, diseño orientado a objetos y análisis de rendimiento.
+Este proyecto extiende el simulador gravitatorio del Laboratorio 1, portando el núcleo computacional a GPU utilizando C++ y CUDA. El sistema integra física newtoniana, diseño orientado a objetos, aceleración por hardware y análisis de rendimiento en el clúster.
 
-### 1. Organización del Equipo (Roles)
+### 1. Organización del Equipo (Roles y Responsabilidades)
 
-De acuerdo a lo solicitado en el punto 2 del enunciado, a continuación se detallan los roles y responsabilidades:
+De acuerdo a lo solicitado en la Sección 3 del enunciado, a continuación se detallan los roles y responsabilidades de los integrantes del equipo para este laboratorio:
 
-| Rol | Encargado | Responsabilidades |
+| Rol | Encargado | Responsabilidades concretas (Lab 2) |
 | :--- | :--- | :--- |
-| **1. Modelo y datos** | Alonso Henriquez | Clase `Particle`, contenedor del sistema, constantes, inicialización reproducible, I/O. |
-| **2. Núcleo paralelo** | Benjamin Moya | `NBodySystem::computeAccelerations`, bucles todo-pares, OpenMP schedules, evitar condiciones de carrera. |
-| **3. Integración y física** | Braulio Bravo | `Integrator` / `NBodySimulator`, paso temporal $\Delta t$, estabilidad y conservación de energía. |
-| **4. Métricas y benchmarks** | Diego Molina | `MetricsCalculator`, `Benchmark`, mediciones de tiempo, speedup, eficiencia, Ley de Amdahl. |
-| **5. Calidad, CI y visualización** | Sebastian de la Fuente | Pruebas unitarias e integración, Dockerfile, GitHub Actions, `Visualizer`, scripts de graficación. |
+| **1. Kernels CUDA** | Benjamin Moya | Implementación de `computeAccelerationsKernel` (1 hilo por cuerpo) y `computeAccelerationsKernelShared` (memoria compartida/tiles); lanzadores host, macros `CUDA_CHECK` y protección de bordes. |
+| **2. Host/device y memoria** | Braulio Bravo | Estructura `CudaBuffer` (RAII); layout SoA en device; gestión de transferencias `cudaMalloc`/`cudaMemcpy`/`cudaFree`; sincronización de memoria y minimización de copias. |
+| **3. Integración y validación** | Diego Molina | Integración Euler en Host tras sincronizar; tests CPU vs GPU con tolerancias; cálculo de métricas de energía cinética $K$ y potencial $U$ en GPU (reducción en shared y atomicAdd). |
+| **4. Git, releases y agentes** | Alonso Henriquez  | Protección de rama main; flujo de ramas feature/fix; bitácora en `CHANGELOG.md`; tags de release (`v2.0.0-lab2`); prompts y configuración de los 3 agentes de IA. |
+| **5. Calidad, CI y visualización** | Sebastian de la Fuente | Extender CI del Lab 1; revisión de calidad de issues/MR; Dockerfile CUDA; gráficos de speedup, blockDim.x y trayectorias del clúster. |
 
-### 2. URL del Repositorio
-El código fuente y el historial de versiones se encuentran en:
-https://github.com/TinyAntu/Laboratorio-1-Programacion-paralela-con-OpenMP.git
+---
 
-### 3. Instrucciones de Compilación local
+### 2. Requisitos de Ejecución en GPU y Driver (Host)
+Para compilar y ejecutar con aceleración por hardware localmente o en el clúster DIINF, se requiere que el host cumpla con:
+*   **Hardware:** GPU NVIDIA con arquitectura Kepler o superior (Compute Capability $\ge$ 5.0).
+*   **Driver de NVIDIA:** Versión mínima del driver $\ge 525.xx$ (requerido para compatibilidad con CUDA 12.2).
+*   **Entorno Docker:** Requiere `nvidia-container-toolkit` instalado en el sistema anfitrión y ejecutar el contenedor con la flag `--gpus all`.
 
-El proyecto utiliza **CMake** para la gestión de la compilación.
+---
 
-**Requisitos:**
-- Compilador C++ (compatible con C++17)
-- OpenMP
-- CMake (>= 3.16)
-- GoogleTest (se descarga automáticamente vía CMake)
+### 3. Instrucciones de Compilación y Ejecución (Docker)
 
-**Pasos para compilar:**
+Dado que los servidores de Integración Continua (GitHub Actions) no disponen de una GPU física, los tests están diseñados para detectar dinámicamente la presencia de CUDA y omitir de forma limpia las pruebas de GPU si no hay hardware compatible, manteniendo la pipeline en verde.
+
+#### 3.1 Construcción del Entorno
+Construir la imagen de Docker localmente:
 ```bash
-mkdir build
-cd build
-cmake ..
-make
+docker build -t nbody-cuda-test -f Dockerfile .
 ```
 
-Esto generará los ejecutables:
-- `nbody_app`: Aplicación principal del simulador.
-- `nbody_tests`: Suite de pruebas unitarias e integración.
-- `test_benchmark`: Pruebas específicas para el módulo de benchmarking.
+#### 3.2 Compilación del Proyecto
+Generar archivos de construcción y compilar dentro del contenedor:
+```bash
+docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
+docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test cmake --build build --parallel
+```
+
+Esto generará los siguientes ejecutables dentro de la carpeta `build`:
+*   `nbody_app`: Aplicación principal del simulador.
+*   `nbody_tests`: Suite de pruebas unitarias e integración de CPU y GPU.
+*   `test_benchmark`: Pruebas específicas para el módulo de benchmarking.
+
+---
 
 ### 4. Ejecución de Pruebas
 
-Para ejecutar la suite completa de pruebas automáticas:
+Para ejecutar la suite completa de pruebas automáticas (en el contenedor, sólo se ejecutarán las pruebas CPU y se saltarán limpiamente las de GPU si no hay tarjeta de video disponible):
 ```bash
-# Dentro de la carpeta build
-make test
-# O directamente
-./nbody_tests
+docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test ctest --test-dir build --output-on-failure
 ```
-Las pruebas cubren la verificación de aceleraciones analíticas, conservación de momento lineal (acción-reacción), y consistencia entre versiones seriales y paralelas.
 
-### 5. Repetición de Experimentos
+---
 
-Para repetir los experimentos y generar los resultados presentados en el reporte:
+### 5. Repetición de Experimentos y Benchmarks (Clúster DIINF)
 
-#### 5.1 Parámetros por Defecto
-El simulador está configurado en `src/main.cpp` con los siguientes parámetros base:
-- **Número de cuerpos (N):** 1000
-- **Semilla (Seed):** 42 (para reproducibilidad)
-- **Paso temporal ($\Delta t$):** 0.01
-- **Constante gravitacional (G):** 1.0
-- **Pasos totales:** 500
+Las mediciones finales de performance no se aceptan desde CI, sino que deben ejecutarse únicamente en el clúster DIINF utilizando nodos con GPU dedicada.
 
-#### 5.2 Ejecución del Simulador
-Ejecute el binario principal para generar los archivos de datos (`.dat`):
+#### 5.1 Parámetros de Simulación Obligatorios
+La matriz de pruebas de rendimiento a cubrir en el nodo GPU del clúster DIINF incluye:
+*   **Tamaño de problema (N):** 256, 512, 1024, 2000 cuerpos.
+*   **Variante de Kernel:** Básica (0) y Memoria Compartida (1).
+*   **Tamaño de bloque (blockDim.x):** 64, 128, 256, 512, 1024.
+*   **Repeticiones por punto:** $\ge 10$ ejecuciones (reportando promedio $\bar{T} \pm \sigma_T$).
+*   **Pasos temporales:** $\ge 100$ pasos por corrida.
+
+#### 5.2 Generación de Gráficos
+Una vez ejecutados los benchmarks en el clúster y descargados los archivos `.dat` (`benchmark_results.dat`, `blockdim_study.dat` y `trajectories.dat`) a tu máquina local, puedes generar los gráficos requeridos ejecutando el script de Python dentro del contenedor Docker:
 ```bash
-./nbody_app
+docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test python3 plot.py
 ```
-Esto generará archivos como `trayectorias_base.dat`, `energia_base.dat`, y sus variantes para diferentes configuraciones de OpenMP (schedule, chunk, collapse, Newton3).
 
-#### 5.3 Generación de Gráficos
-Para visualizar los resultados y generar las figuras de rendimiento (`performance_plots.png`):
-```bash
-# Requiere python3, numpy, pandas, matplotlib y pillow
-python3 plot.py
-```
-*Nota: El script `plot.py` debe ejecutarse manualmente para generar los gráficos finales de trayectorias, energía y análisis de escalabilidad. y debe ejecutarse el que este dentro de la carpeta build*
+Esto generará las figuras del informe (incluyendo análisis de Speedup, Amdahl, blockDim y trayectorias físicas).
 
-### 6. Consideraciones Técnicas
+---
+
+### 6. Consideraciones Técnicas y Físicas
 
 #### 6.1 Justificación de G = 1
 Se ha fijado la constante gravitacional $G = 1$ por las siguientes razones:
-- **Técnica:** Previene problemas de *underflow* o *overflow* al trabajar con variables `double` y mejora la eficiencia computacional al evitar multiplicaciones por constantes pequeñas.
-- **Física:** Representa un sistema de "unidades N-cuerpos" adimensional, donde las magnitudes se expresan en función de valores referenciales del propio sistema.
+*   **Técnica:** Previene problemas de *underflow* o *overflow* al trabajar con variables `double` y mejora la eficiencia computacional al evitar multiplicaciones por constantes extremadamente pequeñas en el kernel de CUDA.
+*   **Física:** Representa un sistema de unidades N-cuerpos adimensional.
 
-#### 6.2 Criterio de Tolerancia
-En las pruebas de comparación entre versiones seriales y paralelas (o validaciones analíticas), se utiliza una tolerancia de **$1 \times 10^{-10}$** para compensar pequeñas desviaciones inherentes a la aritmética de punto flotante y el orden de las sumas en paralelo.
+#### 6.2 Definición del Sistema de Unidades Físicas (Adimensionales)
+Para asegurar la coherencia física de la simulación con $G = 1$, definimos el sistema de unidades adimensionales del simulador en función de tres unidades fundamentales del sistema:
+*   **Masa ($[M]$):** Unidad de masa referencial, definida tal que la masa de una partícula típica o la masa total del sistema sea $1$ unidad de masa.
+*   **Longitud ($[L]$):** Unidad de longitud referencial, que define la escala del plano bidimensional (por ejemplo, el radio inicial de distribución de los cuerpos).
+*   **Tiempo ($[T]$):** Unidad de tiempo derivada del sistema, calculada de tal forma que la constante gravitatoria sea unitaria. La relación física es:
+    $$[T] = \sqrt{\frac{[L]^3}{G \cdot [M]}}$$
+    Con $G = 1$, un intervalo de tiempo simulado de $\Delta t = 0.01$ equivale a $0.01 [T]$.
+*   **Velocidad ($[V]$) y Aceleración ($[A]$):** Unidades derivadas del movimiento, expresadas como $[V] = [L]/[T]$ y $[A] = [L]/[T]^2$ respectivamente.
+
+#### 6.3 Criterio de Tolerancia CPU vs. GPU
+Debido a las diferencias de redondeo y acumulación en aritmética de punto flotante en paralelo dentro de la GPU, se define una tolerancia mixta aceptable para las aceleraciones:
+*   **Tolerancia Relativa (`rtol`):** $1 \times 10^{-4}$
+*   **Tolerancia Absoluta (`atol`):** $1 \times 10^{-8}$
+*   Fórmula de validación: $|a_{cpu} - a_{gpu}| \le \text{atol} + \text{rtol} \times |a_{cpu}|$
