@@ -42,6 +42,15 @@ public:
     void computeAccelerations(int schedule_type, int chunk_size);
     void computeAccelerationsCollapse(); // p.ej. collapse(2) en i,j
     void computeAccelerationsNewton3(); // Implementación con tercera ley de Newton
+
+    // Asume un block_size por defecto (ej: 256) y variante por defecto (0 = básica)
+    void computeAccelerationsGpu();
+    
+    // Variante: 0 = basico, 1 = shared memory (block_size por defecto = 256)
+    void computeAccelerationsGpu(int variant);
+    
+    // Control total sobre la variante y el tamaño del bloque CUDA
+    void computeAccelerationsGpu(int variant, int block_size);
     
     const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
