@@ -1,4 +1,5 @@
 #include "NBodySystem.h"
+#include "kernels/accelerations.cuh"
 #include <cmath>
 #include <random>
 #include <fstream>
@@ -230,6 +231,54 @@ void NBodySystem::computeAccelerationsNewton3() {
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < n; ++i) {
         bodies[i].setAcceleration(ax_global[i], ay_global[i]);
+    }
+}
+
+// Valores por defecto (Variante 0 = basica, Block Size = 256)
+void NBodySystem::computeAccelerationsGpu() {
+    computeAccelerationsGpu(0, 256);
+}
+
+// Variando algoritmo con Block Size por defecto
+void NBodySystem::computeAccelerationsGpu(int variant) {
+    computeAccelerationsGpu(variant, 256);
+}
+
+// Control absoluto de ejecucion (Calculo de Grilla + Invocación)
+void NBodySystem::computeAccelerationsGpu(int variant, int block_size) {
+    int N = bodies.size();
+    if (N == 0) return;
+
+    // Grilla con división techo
+    int grid_size = (N + block_size - 1) / block_size;
+
+    // En el pipeline global, el Rol 2 provee las direcciones de memoria global en Device (SoA)
+    // Aqui recuperamos esos punteros ficticios. Reemplazandolos por los miembros reales de los buffers:
+    const double* d_x = nullptr;    // deviceBuffers.d_x
+    const double* d_y = nullptr;    // deviceBuffers.d_y
+    const double* d_mass = nullptr; // deviceBuffers.d_mass
+    double* d_ax = nullptr;         // deviceBuffers.d_ax
+    double* d_ay = nullptr;         // deviceBuffers.d_ay
+
+    /* 
+       Enlazamiento con la estructura SoA del Rol 2
+       d_x = CudaBufferSoA::getInstance().getXPtr(); 
+    */
+
+    if (variant == 0) {
+        // Ejecuta la variante basica (SoA directo en memoria global)
+        launchAccelerationsBasic(grid_size, block_size, N, 
+                                 d_x, d_y, d_mass, d_ax, d_ay, 
+                                 softening_eps, G_const);
+    } 
+    else if (variant == 1) {
+        // Ejecuta la variante optimizada con Memoria Compartida
+        launchAccelerationsShared(grid_size, block_size, N, 
+                                  d_x, d_y, d_mass, d_ax, d_ay, 
+                                  softening_eps, G_const);
+    } 
+    else {
+        throw std::invalid_argument("Variante CUDA invalida. Solo se soporta 0 (Basico) o 1 (Shared).");
     }
 }
 
