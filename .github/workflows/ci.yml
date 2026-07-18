@@ -87,21 +87,11 @@ jobs:
       - name: Test (Unit & Integration)
         run: ctest --test-dir ${{ env.BUILD_DIR }} --output-on-failure 
 
-      - name: Run Benchmarks (Data Generation)
-        run: |
-          # 1. Ejecutamos los tests de rendimiento
-          ./${{ env.BUILD_DIR }}/test_benchmark
-          
-          # 2. Ejecutamos la simulación principal para generar trayectorias y energía
-          ./${{ env.BUILD_DIR }}/nbody_app
-
-    #GENERAMOS LA SALIDA DE LOS BENCHMARKS Y LA SUBIMOS COMO ARTIFACTO JUNTO AL ARCHIVO PYTHON PARA GRAFICARLOS
-      - name: Upload benchmark artifacts
-        uses: actions/upload-artifact@v4
-        if: always() 
-        with:
-          name: lab1-results
-          path: |
-            *.dat
-            plot.py
-            ${{ env.BUILD_DIR }}/*.dat
+      # NOTA: Los benchmarks y la simulación principal para GPU no se ejecutan en CI
+      # dado que los runners de GitHub Actions no poseen GPUs físicas NVIDIA.
+      # Las mediciones finales de rendimiento deben ser obtenidas únicamente desde el clúster DIINF.
+      # - name: Run Benchmarks (Data Generation)
+      #   run: |
+      #     ./${{ env.BUILD_DIR }}/test_benchmark
+      #     ./${{ env.BUILD_DIR }}/nbody_app
+
