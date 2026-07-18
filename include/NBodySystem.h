@@ -56,14 +56,9 @@ public:
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
     
     // Getters de constantes físicas
-    int getCount() const; 
+    int getCount() const;
     double getG() const;
     double getSoftening() const;
-
-    // Metodos Cuda Lab2
-    void computeAccelerationsGPU();
-    void computeAccelerationsGPU(int variant); // 0 = basico, 1 = shared memory
-    void computeAccelerationsGPU(int variant, int block_size); // 0 = basico, 1 = shared memory
 };
 
 #endif // NBODYSYSTEM_H

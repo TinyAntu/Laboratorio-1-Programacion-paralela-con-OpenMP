@@ -87,12 +87,12 @@ void NBodySimulator::integrateEulerNewton3() {
 
 // ===== Lab2: paso temporal con aceleraciones calculadas en GPU =====
 // Orden fijo del enunciado (sección 4.1): (1) lanzar kernel de aceleraciones y
-// (2) cudaDeviceSynchronize ocurren dentro de computeAccelerationsGPU; luego
+// (2) cudaDeviceSynchronize ocurren dentro de computeAccelerationsGpu; luego
 // (3) Euler kick/drift en host; (4) la subida de posiciones a device del paso
-// siguiente la hace computeAccelerationsGPU (masas se suben una sola vez).
+// siguiente la hace computeAccelerationsGpu (masas se suben una sola vez).
 void NBodySimulator::stepEulerGpu() {
-    system->computeAccelerationsGPU();
-
+    system->computeAccelerationsGpu();
+    
     processBodies();   // kick & drift en host (serial, referencia Lab 1)
 
     calculateEnergy(); // energía en host (calculateEnergyGpu es del Rol 3)

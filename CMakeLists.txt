@@ -66,10 +66,7 @@ target_link_libraries(nbody_core PUBLIC OpenMP::OpenMP_CXX)
 if(NBODY_CUDA_ENABLED)
   target_sources(nbody_core PRIVATE
     src/NBodySystemGpu.cu
-    kernels/accelerations.cu
-  )
-  target_include_directories(nbody_core PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/kernels"
+    src/kernels/accelerations.cu
   )
   # PUBLIC: NBodySystem.cpp y los tests deciden con este define si compilar
   # los stubs sin CUDA o usar las definiciones reales de NBodySystemGpu.cu

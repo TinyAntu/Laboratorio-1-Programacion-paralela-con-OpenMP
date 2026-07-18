@@ -1,4 +1,5 @@
-// Tests de la capa host/device y memoria (Lab2, Rol 2) + equivalencia CPU vs GPU.
+// Tests de la capa host/device y memoria (Lab2, Rol 2) + equivalencia CPU vs GPU
+// para ambas variantes de kernel (Rol 1): 0 = básica, 1 = shared memory (tiles).
 // Requieren una GPU NVIDIA disponible (se compilan solo con ENABLE_CUDA=ON).
 //
 // Tolerancias CPU vs GPU (documentadas en README, punto de partida del enunciado):
@@ -26,6 +27,12 @@ constexpr double ATOL = 1e-8;
     return ::testing::AssertionFailure()
            << "gpu=" << gpu << " cpu=" << cpu
            << " |diff|=" << std::fabs(gpu - cpu) << " > tol=" << tol;
+}
+
+// Referencia CPU serial (fuente de verdad del Lab 1) para una semilla dada
+void computeCpuReference(NBodySystem& sys, unsigned int seed, int N) {
+    sys.loadFromSeed(seed, N);
+    sys.computeAccelerations();
 }
 
 } // namespace
@@ -76,7 +83,7 @@ TEST(CudaBufferTest, TransferenciasInvalidasLanzan) {
     EXPECT_THROW(chico.copyToDevice(datos), std::out_of_range);
 }
 
-// ===== Aceleraciones GPU: caso analítico del enunciado =====
+// ===== Aceleraciones GPU: caso analítico del enunciado (ambas variantes) =====
 // Dos masas en el eje x: m1 en x=0, m2 en x=d. Sobre la partícula 1:
 //   a1x = G * m2 * d / (d^2 + eps^2)^(3/2)
 // Con G=m2=d=1, eps=0.1 -> a1x = 1/(1.01)^1.5 ≈ 0.98519 (el CPU serial del
@@ -84,25 +91,22 @@ TEST(CudaBufferTest, TransferenciasInvalidasLanzan) {
 // fórmula (1) del propio enunciado con estos parámetros).
 TEST(GpuAccelerationsTest, CasoAnaliticoDosCuerpos) {
     const double G = 1.0, eps = 0.1, d = 1.0, m2 = 1.0;
-
-    NBodySystem gpu_sys(G, eps);
-    gpu_sys.addParticle(Particle(1.0, 0.0, 0.0));
-    gpu_sys.addParticle(Particle(m2, d, 0.0));
-    gpu_sys.computeAccelerationsGPU();
-
-    NBodySystem cpu_sys(G, eps);
-    cpu_sys.addParticle(Particle(1.0, 0.0, 0.0));
-    cpu_sys.addParticle(Particle(m2, d, 0.0));
-    cpu_sys.computeAccelerations(); // referencia serial Lab 1
-
     const double analitico = G * m2 * d / std::pow(d * d + eps * eps, 1.5);
 
-    EXPECT_TRUE(NearTol(gpu_sys.getBodies()[0].getAx(), analitico));
-    EXPECT_TRUE(NearTol(gpu_sys.getBodies()[0].getAx(),
-                        cpu_sys.getBodies()[0].getAx()));
-    EXPECT_TRUE(NearTol(gpu_sys.getBodies()[0].getAy(), 0.0));
-    // Acción-reacción con masas iguales: a2x = -a1x
-    EXPECT_TRUE(NearTol(gpu_sys.getBodies()[1].getAx(), -analitico));
+    for (int variant : {0, 1}) {
+        NBodySystem gpu_sys(G, eps);
+        gpu_sys.addParticle(Particle(1.0, 0.0, 0.0));
+        gpu_sys.addParticle(Particle(m2, d, 0.0));
+        gpu_sys.computeAccelerationsGpu(variant);
+
+        EXPECT_TRUE(NearTol(gpu_sys.getBodies()[0].getAx(), analitico))
+            << "variante " << variant;
+        EXPECT_TRUE(NearTol(gpu_sys.getBodies()[0].getAy(), 0.0))
+            << "variante " << variant;
+        // Acción-reacción con masas iguales: a2x = -a1x
+        EXPECT_TRUE(NearTol(gpu_sys.getBodies()[1].getAx(), -analitico))
+            << "variante " << variant;
+    }
 }
 
 // ===== Equivalencia CPU serial vs GPU (N pequeño, semilla fija) =====
@@ -110,45 +114,74 @@ TEST(GpuAccelerationsTest, CasoAnaliticoDosCuerpos) {
 TEST(GpuAccelerationsTest, ConsistenciaCpuVsGpuSeedFija) {
     const int N = 32;
     const unsigned int seed = 123;
-    const double G = 1.0, eps = 0.1;
 
-    NBodySystem cpu_sys(G, eps);
-    cpu_sys.loadFromSeed(seed, N);
-    cpu_sys.computeAccelerations();
-
-    NBodySystem gpu_sys(G, eps);
-    gpu_sys.loadFromSeed(seed, N);
-    gpu_sys.computeAccelerationsGPU();
-
+    NBodySystem cpu_sys(1.0, 0.1);
+    computeCpuReference(cpu_sys, seed, N);
     const auto& cpu = cpu_sys.getBodies();
-    const auto& gpu = gpu_sys.getBodies();
-    ASSERT_EQ(cpu.size(), gpu.size());
-    for (int i = 0; i < N; ++i) {
-        EXPECT_TRUE(NearTol(gpu[i].getAx(), cpu[i].getAx())) << "ax, cuerpo " << i;
-        EXPECT_TRUE(NearTol(gpu[i].getAy(), cpu[i].getAy())) << "ay, cuerpo " << i;
+
+    for (int variant : {0, 1}) {
+        NBodySystem gpu_sys(1.0, 0.1);
+        gpu_sys.loadFromSeed(seed, N);
+        gpu_sys.computeAccelerationsGpu(variant);
+
+        const auto& gpu = gpu_sys.getBodies();
+        ASSERT_EQ(cpu.size(), gpu.size());
+        for (int i = 0; i < N; ++i) {
+            EXPECT_TRUE(NearTol(gpu[i].getAx(), cpu[i].getAx()))
+                << "variante " << variant << ", ax, cuerpo " << i;
+            EXPECT_TRUE(NearTol(gpu[i].getAy(), cpu[i].getAy()))
+                << "variante " << variant << ", ay, cuerpo " << i;
+        }
     }
 }
 
-// El resultado no debe depender de blockDim.x (protección de borde correcta)
+// Requisito del enunciado §4.1: la variante shared debe producir el mismo
+// resultado físico que la básica dentro de la tolerancia acordada.
+TEST(GpuAccelerationsTest, BasicaVsSharedCoinciden) {
+    const int N = 100;
+    const unsigned int seed = 99;
+
+    NBodySystem basica(1.0, 0.1);
+    basica.loadFromSeed(seed, N);
+    basica.computeAccelerationsGpu(0);
+
+    NBodySystem shared(1.0, 0.1);
+    shared.loadFromSeed(seed, N);
+    shared.computeAccelerationsGpu(1);
+
+    for (int i = 0; i < N; ++i) {
+        EXPECT_TRUE(NearTol(shared.getBodies()[i].getAx(),
+                            basica.getBodies()[i].getAx())) << "ax, cuerpo " << i;
+        EXPECT_TRUE(NearTol(shared.getBodies()[i].getAy(),
+                            basica.getBodies()[i].getAy())) << "ay, cuerpo " << i;
+    }
+}
+
+// El resultado no debe depender de blockDim.x. Crítico para la variante shared:
+// con N=100 (no múltiplo de ningún block size) los tiles quedan parcialmente
+// llenos y se ejercita la protección de bordes en la carga cooperativa.
 TEST(GpuAccelerationsTest, IndependienteDelBlockSize) {
-    const int N = 100; // no múltiplo de los block sizes: ejercita el borde i>=N
+    const int N = 100;
     const unsigned int seed = 7;
 
     NBodySystem ref_sys(1.0, 0.1);
-    ref_sys.loadFromSeed(seed, N);
-    ref_sys.computeAccelerations();
+    computeCpuReference(ref_sys, seed, N);
     const auto& ref = ref_sys.getBodies();
 
-    for (int block_size : {64, 128, 256, 512, 1024}) {
-        NBodySystem gpu_sys(1.0, 0.1);
-        gpu_sys.loadFromSeed(seed, N);
-        gpu_sys.computeAccelerationsGPU(0, block_size);
-        const auto& gpu = gpu_sys.getBodies();
-        for (int i = 0; i < N; ++i) {
-            EXPECT_TRUE(NearTol(gpu[i].getAx(), ref[i].getAx()))
-                << "block=" << block_size << " ax cuerpo " << i;
-            EXPECT_TRUE(NearTol(gpu[i].getAy(), ref[i].getAy()))
-                << "block=" << block_size << " ay cuerpo " << i;
+    for (int variant : {0, 1}) {
+        for (int block_size : {64, 128, 256, 512, 1024}) {
+            NBodySystem gpu_sys(1.0, 0.1);
+            gpu_sys.loadFromSeed(seed, N);
+            gpu_sys.computeAccelerationsGpu(variant, block_size);
+            const auto& gpu = gpu_sys.getBodies();
+            for (int i = 0; i < N; ++i) {
+                EXPECT_TRUE(NearTol(gpu[i].getAx(), ref[i].getAx()))
+                    << "variante " << variant << " block=" << block_size
+                    << " ax cuerpo " << i;
+                EXPECT_TRUE(NearTol(gpu[i].getAy(), ref[i].getAy()))
+                    << "variante " << variant << " block=" << block_size
+                    << " ay cuerpo " << i;
+            }
         }
     }
 }
@@ -156,11 +189,9 @@ TEST(GpuAccelerationsTest, IndependienteDelBlockSize) {
 TEST(GpuAccelerationsTest, ParametrosInvalidosLanzan) {
     NBodySystem sys(1.0, 0.1);
     sys.loadFromSeed(42, 8);
-    EXPECT_THROW(sys.computeAccelerationsGPU(99), std::invalid_argument);
-    EXPECT_THROW(sys.computeAccelerationsGPU(0, 0), std::invalid_argument);
-    EXPECT_THROW(sys.computeAccelerationsGPU(0, 2048), std::invalid_argument);
-    // Variante shared: pendiente del Rol 1 (cambiar cuando esté implementada)
-    EXPECT_THROW(sys.computeAccelerationsGPU(1), std::runtime_error);
+    EXPECT_THROW(sys.computeAccelerationsGpu(99), std::invalid_argument);
+    EXPECT_THROW(sys.computeAccelerationsGpu(0, 0), std::invalid_argument);
+    EXPECT_THROW(sys.computeAccelerationsGpu(0, 2048), std::invalid_argument);
 }
 
 // ===== Integración: stepEulerGpu vs integrateEuler serial =====
