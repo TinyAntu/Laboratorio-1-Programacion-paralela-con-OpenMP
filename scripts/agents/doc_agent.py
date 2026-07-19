@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 from github import Github
+from github import Auth
 from google import genai 
 
 def analizar_texto_con_ia(contenido_archivo):
@@ -33,7 +34,7 @@ def analizar_texto_con_ia(contenido_archivo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
@@ -50,7 +51,8 @@ def main():
         print("Error: Faltan variables de entorno de GitHub.")
         exit(1)
 
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     
     # Archivos a auditar según el laboratorio

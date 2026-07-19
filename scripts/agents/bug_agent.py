@@ -1,7 +1,9 @@
 import os
 import json
+import token
 import uuid
 from github import Github
+from github import Auth
 from google import genai 
 
 def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
@@ -32,7 +34,7 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
@@ -48,7 +50,8 @@ def main():
         print("Error: Faltan variables de entorno de GitHub.")
         exit(1)
 
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     
     try:

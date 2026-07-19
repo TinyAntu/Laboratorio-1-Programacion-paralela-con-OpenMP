@@ -48,3 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 -Cambio de libreria de googleIA
+
+## [1.1.6] 18-06-2026
+
+### Changed
+
+-Se cambio la forma de como se autentica el token de github
+-Se cambio el modelo de gemini para que se puede utilizar con la nueva libreria

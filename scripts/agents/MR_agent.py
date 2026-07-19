@@ -1,6 +1,7 @@
 import os
 import json
 from github import Github
+from github import Auth
 from google import genai 
 
 def evaluar_diff_pr_con_ia(diff_texto):
@@ -28,7 +29,7 @@ def evaluar_diff_pr_con_ia(diff_texto):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
@@ -46,7 +47,8 @@ def main():
         print("Faltan variables de entorno de GitHub.")
         exit(1)
         
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     pr = repo.get_pull(int(pr_number))
     
