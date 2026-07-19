@@ -1,8 +1,8 @@
 import os
 import json
 import uuid
-from github import Github
-from google import genai 
+from github import Github, Auth
+from google import genai
 
 def analizar_texto_con_ia(contenido_archivo):
     api_key = os.getenv("GEMINI_API_KEY")
@@ -10,7 +10,6 @@ def analizar_texto_con_ia(contenido_archivo):
         print("Error: No se encontró GEMINI_API_KEY. Saliendo...")
         exit(1)
         
-    # <-- NUEVA INICIALIZACIÓN DEL CLIENTE
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
@@ -33,13 +32,13 @@ def analizar_texto_con_ia(contenido_archivo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash', 
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
     except Exception as e:
-        print(f"Error al parsear el JSON de la IA: {e}")
+        print(f"Error detallado de la IA: {e}") 
         return {"encontro_problemas": False}
 
 def main():
@@ -50,10 +49,10 @@ def main():
         print("Error: Faltan variables de entorno de GitHub.")
         exit(1)
 
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     
-    # Archivos a auditar según el laboratorio
     archivos_objetivo = ["README.md", "CHANGELOG.md"]
     
     for ruta_archivo in archivos_objetivo:
@@ -68,10 +67,10 @@ def main():
         analisis = analizar_texto_con_ia(contenido_actual)
         
         if not analisis.get("encontro_problemas", False):
-            print(f" La se encontró problemas en {ruta_archivo}.")
+            print(f"✅ La IA no encontró problemas en {ruta_archivo}.")
             continue
             
-        print(f" Problemas encontrados en {ruta_archivo}.")
+        print(f"⚠️ Problemas encontrados en {ruta_archivo}.")
         
         if analisis.get("es_mecanico", False):
             print("El problema es mecánico. Creando fix automático...")
@@ -99,7 +98,7 @@ def main():
             try:
                 pr.add_to_labels("agent: auto-fix")
             except Exception:
-                print("No se pudo añadir la etiqueta (asegúrate de que 'agent: auto-fix' exista).")
+                print("No se pudo añadir la etiqueta.")
             
             print(f"PR creado con éxito: {pr.html_url}")
             
