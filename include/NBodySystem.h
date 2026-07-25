@@ -13,8 +13,20 @@ private:
     double G_const;
     double softening_eps;
 
+    // Lab2: estado GPU opaco (buffers SoA en device). Se define en
+    // src/NBodySystemGpu.cu para que este header no dependa de tipos CUDA
+    // en builds solo-CPU. Se crea perezosamente en la primera llamada GPU.
+    struct GpuState;
+    GpuState* gpu_state = nullptr;
+
 public:
     NBodySystem(double G, double epsilon);
+    ~NBodySystem();
+
+    // Dueño único del estado GPU: no copiable
+    NBodySystem(const NBodySystem&) = delete;
+    NBodySystem& operator=(const NBodySystem&) = delete;
+
     void addParticle(const Particle& p);
     void zeroAccelerations();
 
@@ -30,19 +42,23 @@ public:
     void computeAccelerations(int schedule_type, int chunk_size);
     void computeAccelerationsCollapse(); // p.ej. collapse(2) en i,j
     void computeAccelerationsNewton3(); // Implementación con tercera ley de Newton
+
+    // Asume un block_size por defecto (ej: 256) y variante por defecto (0 = básica)
+    void computeAccelerationsGpu();
+    
+    // Variante: 0 = basico, 1 = shared memory (block_size por defecto = 256)
+    void computeAccelerationsGpu(int variant);
+    
+    // Control total sobre la variante y el tamaño del bloque CUDA
+    void computeAccelerationsGpu(int variant, int block_size);
     
     const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
     
     // Getters de constantes físicas
-    int getCount() const; 
+    int getCount() const;
     double getG() const;
     double getSoftening() const;
-
-    // Metodos Cuda Lab2
-    void computeAccelerationsGPU();
-    void computeAccelerationsGPU(int variant); // 0 = basico, 1 = shared memory
-    void computeAccelerationsGPU(int variant, int block_size); // 0 = basico, 1 = shared memory
 };
 
 #endif // NBODYSYSTEM_H

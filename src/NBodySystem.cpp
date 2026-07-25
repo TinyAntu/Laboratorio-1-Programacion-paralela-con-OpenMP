@@ -286,3 +286,27 @@ double NBodySystem::getG() const {
 double NBodySystem::getSoftening() const {
     return softening_eps;
 }
+
+// ===== Lab2: soporte GPU =====
+// Con CUDA habilitado (NBODY_HAS_CUDA, definido por CMake) las definiciones
+// reales del destructor y de las sobrecargas GPU viven en src/NBodySystemGpu.cu.
+// Sin CUDA se definen aquí como stubs para que los builds solo-CPU (CI) linkeen.
+#ifndef NBODY_HAS_CUDA
+
+NBodySystem::~NBodySystem() = default; // sin CUDA nunca se crea estado GPU
+
+void NBodySystem::computeAccelerationsGpu() {
+    computeAccelerationsGpu(0, 256);
+}
+
+void NBodySystem::computeAccelerationsGpu(int variant) {
+    computeAccelerationsGpu(variant, 256);
+}
+
+void NBodySystem::computeAccelerationsGpu(int /*variant*/, int /*block_size*/) {
+    throw std::runtime_error(
+        "computeAccelerationsGpu: el binario fue compilado sin soporte CUDA "
+        "(configure con -DENABLE_CUDA=ON y el CUDA Toolkit instalado)");
+}
+
+#endif // NBODY_HAS_CUDA
