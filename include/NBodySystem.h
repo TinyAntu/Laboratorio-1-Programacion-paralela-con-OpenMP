@@ -6,6 +6,7 @@
 #include <vector>
 #include "Particle.h" //System es el contenedor de las Particulas
 #include <string>
+#include <utility>
 
 class NBodySystem {
 private:
@@ -54,6 +55,11 @@ public:
     
     const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
+    
+    std::pair<double, double> computeEnergyGpu(
+        int method,
+        int block_size = 256
+    );
     
     // Getters de constantes físicas
     int getCount() const;

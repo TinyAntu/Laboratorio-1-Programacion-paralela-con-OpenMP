@@ -25,6 +25,8 @@ private:
     CudaBuffer<double> d_y;
     CudaBuffer<double> d_ax;
     CudaBuffer<double> d_ay;
+    CudaBuffer<double> d_vx;
+    CudaBuffer<double> d_vy;
     
     // Buffers host reutilizables para empaquetar AoS (Particle) -> SoA sin
     // realocar en cada paso temporal.
@@ -43,6 +45,8 @@ public:
         d_y.allocate(count);
         d_ax.allocate(count);
         d_ay.allocate(count);
+        d_vx.allocate(count);
+        d_vy.allocate(count);
         h_scratch_a.resize(count);
         h_scratch_b.resize(count);
         count_ = count;
@@ -76,12 +80,24 @@ public:
         }
     }
 
+    void uploadVelocities(const std::vector<Particle>& bodies) {
+        for (std::size_t i = 0; i < count_; ++i) {
+            h_scratch_a[i] = bodies[i].getVx();
+            h_scratch_b[i] = bodies[i].getVy();
+        }
+
+        d_vx.copyToDevice(h_scratch_a.data(), count_);
+        d_vy.copyToDevice(h_scratch_b.data(), count_);
+    }
+
     // Punteros device crudos para pasar a los kernels (Rol 1)
     const double* mass() const { return d_mass.data(); }
     const double* x() const { return d_x.data(); }
     const double* y() const { return d_y.data(); }
     double* ax() { return d_ax.data(); }
     double* ay() { return d_ay.data(); }
+    const double* vx() const { return d_vx.data(); }
+    const double* vy() const { return d_vy.data(); }
 
     std::size_t size() const { return count_; }
 };

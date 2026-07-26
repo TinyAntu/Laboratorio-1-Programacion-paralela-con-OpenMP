@@ -91,11 +91,15 @@ void NBodySimulator::integrateEulerNewton3() {
 // (3) Euler kick/drift en host; (4) la subida de posiciones a device del paso
 // siguiente la hace computeAccelerationsGpu (masas se suben una sola vez).
 void NBodySimulator::stepEulerGpu() {
+    // 1. Subir posiciones y calcular aceleraciones en GPU.
+    // 2. La sincronización y descarga ocurren dentro de este método.
     system->computeAccelerationsGpu();
-    
-    processBodies();   // kick & drift en host (serial, referencia Lab 1)
 
-    calculateEnergy(); // energía en host (calculateEnergyGpu es del Rol 3)
+    // 3. Euler explícito en host: primero kick, luego drift.
+    processBodies();
+
+    // 4. Calcular K y U en GPU mediante reducción shared.
+    calculateEnergyGpu();
 }
 
 // Implementación secuencial
@@ -459,4 +463,13 @@ void NBodySimulator::calculateFinalStateLastprivate() {
     SystemMetrics m = calc.calculateFinalStateLastprivate(
         bodies, system->getG(), system->getSoftening());
     energy_system = {m.kineticEnergy, m.potentialEnergy};
+}
+
+void NBodySimulator::calculateEnergyGpu() {
+    // Método por defecto: reducción con shared memory.
+    calculateEnergyGpu(0);
+}
+
+void NBodySimulator::calculateEnergyGpu(int method) {
+    energy_system = system->computeEnergyGpu(method);
 }

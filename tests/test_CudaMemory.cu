@@ -226,3 +226,132 @@ TEST(GpuIntegrationTest, StepEulerGpuCoincideConSerial) {
     EXPECT_TRUE(NearTol(gpu_sim.getSystemEnergy().second,
                         cpu_sim.getSystemEnergy().second));
 }
+
+TEST(GpuEnergyTest, ReduccionYAtomicCoincidenConCpu) {
+    const int N = 32;
+    const unsigned int seed = 2026;
+
+    const double G = 1.0;
+    const double eps = 0.1;
+    const double dt = 0.01;
+
+    NBodySimulator simulator(
+        N,
+        seed,
+        G,
+        eps,
+        dt
+    );
+
+    /*
+     * loadFromSeed inicializa velocidades en cero.
+     * Asignamos velocidades deterministas para probar realmente K.
+     */
+    auto& bodies =
+        simulator.getSystem().getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        bodies[i].setVx(0.01 * static_cast<double>(i + 1));
+        bodies[i].setVy(-0.02 * static_cast<double>(i + 1));
+    }
+
+    // Referencia serial del Lab 1.
+    simulator.calculateEnergyGpu();
+    const auto cpu_energy =
+        simulator.getSystemEnergy();
+
+    EXPECT_GT(cpu_energy.first, 0.0);
+    EXPECT_LT(cpu_energy.second, 0.0);
+
+    // Método por defecto: reducción shared.
+    simulator.calculateEnergyGpu();
+    const auto reduction_energy =
+        simulator.getSystemEnergy();
+
+    EXPECT_TRUE(NearTol(
+        reduction_energy.first,
+        cpu_energy.first
+    ));
+
+    EXPECT_TRUE(NearTol(
+        reduction_energy.second,
+        cpu_energy.second
+    ));
+
+    // Método 1: atomicAdd.
+    simulator.calculateEnergyGpu(1);
+    const auto atomic_energy =
+        simulator.getSystemEnergy();
+
+    EXPECT_TRUE(NearTol(
+        atomic_energy.first,
+        cpu_energy.first
+    ));
+
+    EXPECT_TRUE(NearTol(
+        atomic_energy.second,
+        cpu_energy.second
+    ));
+
+    // Ambas variantes también deben coincidir entre ellas.
+    EXPECT_TRUE(NearTol(
+        atomic_energy.first,
+        reduction_energy.first
+    ));
+
+    EXPECT_TRUE(NearTol(
+        atomic_energy.second,
+        reduction_energy.second
+    ));
+}
+
+
+TEST(GpuEnergyTest, MetodoInvalidoLanzaExcepcion) {
+    NBodySimulator simulator(
+        8,
+        42,
+        1.0,
+        0.1,
+        0.01
+    );
+
+    EXPECT_THROW(
+        simulator.calculateEnergyGpu(2),
+        std::invalid_argument
+    );
+}
+
+
+TEST(GpuEnergyTest, UnCuerpoTienePotencialCero) {
+    NBodySimulator simulator(
+        1,
+        42,
+        1.0,
+        0.1,
+        0.01
+    );
+
+    auto& body =
+        simulator.getSystem().getBodies()[0];
+
+    body.setVx(2.0);
+    body.setVy(-1.0);
+
+    simulator.calculateEnergyGpu();
+    const auto cpu_energy =
+        simulator.getSystemEnergy();
+
+    simulator.calculateEnergyGpu(0);
+    const auto gpu_energy =
+        simulator.getSystemEnergy();
+
+    EXPECT_TRUE(NearTol(
+        gpu_energy.first,
+        cpu_energy.first
+    ));
+
+    EXPECT_TRUE(NearTol(
+        gpu_energy.second,
+        0.0
+    ));
+}

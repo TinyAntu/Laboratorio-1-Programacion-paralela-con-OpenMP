@@ -3,6 +3,7 @@
 // device (SoA), las transferencias mínimas por paso y conecta los buffers con
 // los kernels del Rol 1 (src/kernels/accelerations.cu).
 #include "NBodySystem.h"
+#include "kernels/metrics.cuh"
 #include "DeviceNBodyState.h"
 #include "CudaUtils.h"
 #include "kernels/accelerations.cuh"
@@ -79,4 +80,86 @@ void NBodySystem::computeAccelerationsGpu(int variant, int block_size) {
 
     // D2H por paso: aceleraciones hacia las Particle para el Euler en host
     dev.downloadAccelerations(bodies);
+}
+
+std::pair<double, double> NBodySystem::computeEnergyGpu(
+    int method,
+    int block_size
+) {
+    if (method != 0 && method != 1) {
+        throw std::invalid_argument(
+            "computeEnergyGpu: method invalido "
+            "(0=reduccion shared, 1=atomicAdd)"
+        );
+    }
+
+    if (block_size <= 0 || block_size > 1024) {
+        throw std::invalid_argument(
+            "computeEnergyGpu: block_size invalido"
+        );
+    }
+
+    if ((block_size & (block_size - 1)) != 0) {
+        throw std::invalid_argument(
+            "computeEnergyGpu: block_size debe ser potencia de 2"
+        );
+    }
+
+    const int n = static_cast<int>(bodies.size());
+
+    if (n == 0) {
+        return {0.0, 0.0};
+    }
+
+    if (gpu_state == nullptr) {
+        gpu_state = new GpuState();
+    }
+
+    DeviceNBodyState& dev =
+        gpu_state->device_state;
+
+    // Cuando N cambia, también deben subirse nuevamente las masas.
+    if (dev.ensureCapacity(static_cast<std::size_t>(n))) {
+        dev.uploadMasses(bodies);
+    }
+
+    /*
+     * Euler se ejecutó en host, por lo que posiciones y velocidades deben
+     * actualizarse antes de calcular K y U en device.
+     */
+    dev.uploadPositions(bodies);
+    dev.uploadVelocities(bodies);
+
+    switch (method) {
+        case 0:
+            return calculateEnergyReductionGpu(
+                n,
+                block_size,
+                dev.mass(),
+                dev.x(),
+                dev.y(),
+                dev.vx(),
+                dev.vy(),
+                G_const,
+                softening_eps
+            );
+
+        case 1:
+            return calculateEnergyAtomicGpu(
+                n,
+                block_size,
+                dev.mass(),
+                dev.x(),
+                dev.y(),
+                dev.vx(),
+                dev.vy(),
+                G_const,
+                softening_eps
+            );
+
+        default:
+            throw std::invalid_argument(
+                "computeEnergyGpu: metodo invalido"
+            );
+    }
 }
