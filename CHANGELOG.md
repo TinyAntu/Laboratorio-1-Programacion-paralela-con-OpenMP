@@ -27,42 +27,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--Archivos basicos necesarios (CudaBuffer)
--Declaracion de metodos minimos necesarios (dentro de NBodySystem, NBodySimulator, Benchmark)
+- Archivos básicos necesarios (`CudaBuffer`).
+- Declaración de métodos mínimos necesarios (dentro de `NBodySystem`, `NBodySimulator`, `Benchmark`).
 
 ## [1.1.0] 07-07-2026
 
 ### Added
 
--Agentes de Documentacion, Bugs y Merge request
+- Agentes de Documentación, Bugs y Merge Request.
 
 ## [1.1.1] 17-07-2026
 
 ### Fixed
 
--Error de typeo dentro del agente MR
+- Error de tipeo dentro del agente MR.
 
 ## [1.1.2] 17-07-2026
 
 ### Fixed
 
--Error de typeo dentro del agente MR
+- Error de tipeo dentro del agente MR.
 
 ## [1.1.3] 17-07-2026
 
 ### Changed
 
--Se cambio la version de python para evitar warning
--Se cambio el modelo de IA a latest
+- Se cambió la versión de Python para evitar warning.
+- Se cambió el modelo de IA a latest.
 
 ## [1.1.4] 17-07-2026
 
 ### Changed
 
--Cambio de requirements para no especificar versionado
+- Cambio de requirements para no especificar versionado.
 
 ## [1.1.5] 17-07-2026
 
 ### Changed
 
--Cambio de libreria de googleIA
+- Cambio de librería de Google AI.
