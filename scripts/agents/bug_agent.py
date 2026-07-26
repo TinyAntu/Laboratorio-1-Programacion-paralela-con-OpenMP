@@ -55,9 +55,9 @@ def main():
     repo = g.get_repo(repo_name)
     
     try:
-        archivos_cuda = repo.get_contents("kernels")
+        archivos_cuda = repo.get_contents("src/kernels")
     except Exception:
-        print("No se encontró la carpeta 'kernels/'.")
+        print("No se encontró la carpeta 'src/kernels/'.")
         return
 
     for archivo in archivos_cuda:
