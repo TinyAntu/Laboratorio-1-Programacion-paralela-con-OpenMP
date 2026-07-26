@@ -33,7 +33,7 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
@@ -55,9 +55,9 @@ def main():
     repo = g.get_repo(repo_name)
     
     try:
-        archivos_cuda = repo.get_contents("kernels")
+        archivos_cuda = repo.get_contents("src/kernels")
     except Exception:
-        print("No se encontró la carpeta 'kernels/'.")
+        print("No se encontró la carpeta 'src/kernels/'.")
         return
 
     for archivo in archivos_cuda:
