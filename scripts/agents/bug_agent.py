@@ -33,7 +33,7 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()

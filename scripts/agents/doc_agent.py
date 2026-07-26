@@ -32,7 +32,7 @@ def analizar_texto_con_ia(contenido_archivo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash', 
+            model='gemini-3.6-flash', 
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
