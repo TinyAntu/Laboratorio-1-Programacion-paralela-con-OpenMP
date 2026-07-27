@@ -1,7 +1,7 @@
 import os
 import json
-from github import Github
-from google import genai 
+from github import Github, Auth
+from google import genai
 
 def evaluar_diff_pr_con_ia(diff_texto):
     api_key = os.getenv("GEMINI_API_KEY")
@@ -28,13 +28,13 @@ def evaluar_diff_pr_con_ia(diff_texto):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
     except Exception as e:
-        print(f"Error en la IA: {e}")
+        print(f"Error detallado en la IA: {e}")
         return {"es_mecanico": False, "razonamiento": "Fallo en el análisis de IA. Se requiere humano por seguridad."}
 
 def main():
@@ -46,11 +46,11 @@ def main():
         print("Faltan variables de entorno de GitHub.")
         exit(1)
         
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     pr = repo.get_pull(int(pr_number))
     
-    # 1. Verificar estado del CI (Último commit)
     ultimo_commit = pr.get_commits().reversed[0]
     estados = ultimo_commit.get_statuses()
     ci_exitoso = True
@@ -59,17 +59,14 @@ def main():
             ci_exitoso = False
             break
 
-    # 2. Leer las diferencias de código (Diff)
     archivos_cambiados = pr.get_files()
     diff_completo = ""
     for archivo in archivos_cambiados:
         diff_completo += f"--- {archivo.filename}\n+++ {archivo.filename}\n{archivo.patch}\n\n"
 
-    # 3. Analizar con IA
     analisis = evaluar_diff_pr_con_ia(diff_completo)
     
-    # 4. Construir el comentario de salida
-    comentario = " **Evaluación del Agente Revisor de MR**\n\n"
+    comentario = "🤖 **Evaluación del Agente Revisor de MR**\n\n"
     
     if not ci_exitoso:
         comentario += "❌ **Estado del CI:** El pipeline de integración continua ha fallado o está pendiente. Por favor, revisa los logs.\n\n"
@@ -84,7 +81,6 @@ def main():
     comentario += f"**Análisis:** {analisis.get('razonamiento', 'Sin razón provista.')}\n\n"
     comentario += "*Nota: Este agente nunca fusionará el código automáticamente a main.*"
     
-    # 5. Publicar comentario en el PR
     pr.create_issue_comment(comentario)
     print("Comentario publicado exitosamente en el PR.")
 

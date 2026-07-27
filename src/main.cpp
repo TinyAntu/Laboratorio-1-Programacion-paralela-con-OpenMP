@@ -31,6 +31,10 @@ int main() {
     Benchmark bench(N, seed, G, softening, dt, repetitions);
     bench.runAll();
 
+#ifdef NBODY_HAS_CUDA
+    bench.runGpuBenchmarks();
+#endif
+
     Visualizer visualizer("snapshots.dat", "energy_timeseries.dat");
     visualizer.runAll(N, seed, G, softening, dt, steps, sample_every);
 

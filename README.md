@@ -1,128 +1,541 @@
-# Laboratorio 2: Programación GPGPU con CUDA
-## Simulador gravitatorio N-cuerpos en 2D (C++/CUDA)
+# Laboratorio 2: Programación Paralela en GPU con CUDA
+## Simulador Gravitatorio N-Cuerpos en 2D (C++ / CUDA)
 
-Este proyecto extiende el simulador gravitatorio del Laboratorio 1, portando el núcleo computacional a GPU utilizando C++ y CUDA. El sistema integra física newtoniana, diseño orientado a objetos, aceleración por hardware y análisis de rendimiento en el clúster.
+Este proyecto extiende el simulador gravitatorio de N-cuerpos en el plano desarrollado en el Laboratorio 1, portando el núcleo computacional de física $O(N^2)$ a GPU utilizando **NVIDIA CUDA**. Incluye una arquitectura con layout SoA (*Structure of Arrays*), kernels de aceleración con memoria compartida y reducciones/atómicas para métricas de energía. Además, implementa un flujo estricto de desarrollo en Git con automatizaciones mediante **Agentes de IA** e integración continua (CI).
 
-### 1. Organización del Equipo (Roles y Responsabilidades)
+### 1. Organización del Equipo (Roles)
 
-De acuerdo a lo solicitado en la Sección 3 del enunciado, a continuación se detallan los roles y responsabilidades de los integrantes del equipo para este laboratorio:
+De acuerdo a lo solicitado en el punto 3 del enunciado, a continuación se detallan los roles y responsabilidades:
 
-| Rol | Encargado | Responsabilidades concretas (Lab 2) |
+| Rol | Encargado | Responsabilidades Concretas |
 | :--- | :--- | :--- |
-| **1. Kernels CUDA** | Benjamin Moya | Implementación de `computeAccelerationsKernel` (1 hilo por cuerpo) y `computeAccelerationsKernelShared` (memoria compartida/tiles); lanzadores host, macros `CUDA_CHECK` y protección de bordes. |
-| **2. Host/device y memoria** | Braulio Bravo | Estructura `CudaBuffer` (RAII); layout SoA en device; gestión de transferencias `cudaMalloc`/`cudaMemcpy`/`cudaFree`; sincronización de memoria y minimización de copias. |
-| **3. Integración y validación** | Diego Molina | Integración Euler en Host tras sincronizar; tests CPU vs GPU con tolerancias; cálculo de métricas de energía cinética $K$ y potencial $U$ en GPU (reducción en shared y atomicAdd). |
-| **4. Git, releases y agentes** | Alonso Henriquez  | Protección de rama main; flujo de ramas feature/fix; bitácora en `CHANGELOG.md`; tags de release (`v2.0.0-lab2`); prompts y configuración de los 3 agentes de IA. |
-| **5. Calidad, CI y visualización** | Sebastian de la Fuente | Extender CI del Lab 1; revisión de calidad de issues/MR; Dockerfile CUDA; gráficos de speedup, blockDim.x y trayectorias del clúster. |
+| **1. Kernels CUDA** | Benjamin Moya | Desarrollo y optimización de `computeAccelerationsKernel` (versión básica) y `computeAccelerationsKernelShared` (uso de memoria compartida y `__syncthreads()`). Lanzadores host, macros `CUDA_CHECK`, manejo de bordes y divergencia de hilos. |
+| **2. Host/Device y Memoria** | Braulio Bravo | Encapsulamiento RAII vía `CudaBuffer`, gestión de memoria en GPU con layout SoA (`d_mass`, `d_x`, `d_y`, `d_ax`, `d_ay`), gestión de `cudaMalloc`/`cudaFree`/`cudaMemcpy`, minimización de transferencias por paso e integración con `cudaDeviceSynchronize()`. |
+| **3. Integración y Validación** | Diego Molina | Integración temporal Euler explícita en host, sobrecarga de métodos (`stepEulerGpu`, `computeAccelerationsGpu`), validación CPU vs. GPU bajo criterio de tolerancia ($rtol=10^{-4}, atol=10^{-8}$), y cálculo de energía ($K$ y $U$) en GPU vía reducción paralela y `atomicAdd`. |
+| **4. Git, Releases y Agentes** | Alonso Henriquez | Gestión del flujo Git (protección de `main`, PR/MR obligatorios), configuración del archivo `CHANGELOG.md` (*Keep a Changelog*), marcado de releases (`v2.0.0-lab2`), y despliegue/supervisión de los 3 agentes de IA en el repositorio. |
+| **5. Calidad, CI y Visualización** | Sebastian de la Fuente | Extensión del pipeline de CI (GitHub Actions / Dockerfile con soporte CUDA), revisión humana de MRs e issues, ejecución de la matriz de benchmarks en el clúster DIINF, y generación de scripts de graficación (Speedup, Ley de Amdahl, estudio de `blockDim.x`). |
+
+### 2. URL del Repositorio
+El código fuente y el historial de versiones se encuentran en:
+https://github.com/TinyAntu/Laboratorio-1-Programacion-paralela-con-OpenMP.git
+
+### 3. Instrucciones de compilación local
+
+El proyecto utiliza **CMake** como sistema de construcción y soporta dos modos de compilación:
+
+- **CPU (OpenMP)**: siempre disponible.
+- **GPU (CUDA)**: se habilita automáticamente si se encuentra un CUDA Toolkit instalado.
+
+#### Requisitos
+
+- Compilador compatible con **C++17**
+- **CMake 3.16** o superior
+- **OpenMP**
+- *(Opcional)* **CUDA Toolkit** para habilitar la aceleración por GPU
+- GoogleTest se descarga automáticamente durante la configuración mediante CMake.
+
+#### Compilación
+
+bash
+mkdir build
+cd build
+cmake ..
+make
+
+
+#### Compilación solo CPU
+
+Si no se desea compilar el soporte CUDA:
+
+bash
+mkdir build
+cd build
+cmake -DENABLE_CUDA=OFF ..
+make
+
+
+#### Compilación con CUDA
+
+Si el CUDA Toolkit está instalado, el soporte GPU se habilita automáticamente:
+
+bash
+mkdir build
+cd build
+cmake -DENABLE_CUDA=ON ..
+make
+
+
+Si es necesario especificar la arquitectura de la GPU:
+
+bash
+cmake -DENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75 ..
+make
+
+
+(Reemplace `75` por la arquitectura correspondiente a su GPU.)
+
+#### Ejecutar la aplicación
+
+bash
+./nbody_app
+
+
+#### Ejecutar las pruebas
+
+Ejecutar todas las pruebas registradas por CTest:
+
+bash
+ctest
+
+
+O ejecutar un ejecutable específico:
+
+bash
+./nbody_tests
+./test_benchmark
+
+
+Si CUDA está habilitado, también se generará:
+
+bash
+./nbody_gpu_tests
+
+
+#### Ejecutables generados
+
+Dependiendo de la configuración, se generarán los siguientes ejecutables:
+
+- `nbody_app`: aplicación principal del simulador.
+- `nbody_tests`: pruebas unitarias e integración.
+- `test_benchmark`: pruebas del módulo de benchmarking.
+- `nbody_gpu_tests`: pruebas de CUDA (solo si CUDA está habilitado).
+
+## 4. Ejecución de Pruebas
+
+El proyecto incorpora una suite de pruebas automáticas basada en **GoogleTest**, integrada con **CTest** mediante CMake. Estas pruebas verifican tanto la implementación secuencial como la paralela (OpenMP) y, cuando está disponible, la implementación sobre GPU mediante CUDA.
+
+### Ejecutar todas las pruebas
+
+Una vez compilado el proyecto, desde el directorio `build` pueden ejecutarse todas las pruebas registradas:
+
+bash
+ctest
+
+
+También es posible utilizar el objetivo generado por CMake:
+
+bash
+make test
+
+
+### Ejecutar pruebas individuales
+
+Cada conjunto de pruebas puede ejecutarse de manera independiente:
+
+bash
+./nbody_tests
+./test_benchmark
+
+
+Si el proyecto fue compilado con soporte CUDA (`ENABLE_CUDA=ON`) también estará disponible:
+
+bash
+./nbody_gpu_tests
+
+
+### Cobertura de las pruebas
+
+La suite de pruebas verifica los principales componentes del simulador:
+
+- Correctitud de la clase `Particle`.
+- Inicialización y generación reproducible de sistemas mediante una semilla fija.
+- Correctitud del integrador de Euler.
+- Validación del cálculo de aceleraciones gravitacionales.
+- Verificación de las métricas físicas del sistema:
+  - Energía cinética.
+  - Energía potencial.
+  - Energía total.
+  - Centro de masa.
+  - Momento lineal.
+  - Radio RMS.
+  - Distancia mínima entre partículas.
+- Consistencia entre implementaciones seriales y paralelas (OpenMP).
+- Funcionamiento del módulo de benchmarking.
+- Correctitud de la administración de memoria y transferencia Host–Device en la versión CUDA.
+
+Cuando CUDA está habilitado, las pruebas GPU comparan los resultados obtenidos por los kernels contra la implementación CPU serial, utilizada como referencia, verificando que las diferencias permanezcan dentro de la tolerancia numérica definida para el proyecto.
 
 ---
 
-### 2. Requisitos de Ejecución en GPU y Driver (Host)
-Para compilar y ejecutar con aceleración por hardware localmente o en el clúster DIINF, se requiere que el host cumpla con:
-*   **Hardware:** GPU NVIDIA con arquitectura Kepler o superior (Compute Capability $\ge$ 5.0).
-*   **Driver de NVIDIA:** Versión mínima del driver $\ge 525.xx$ (requerido para compatibilidad con CUDA 12.2).
-*   **Entorno Docker:** Requiere `nvidia-container-toolkit` instalado en el sistema anfitrión y ejecutar el contenedor con la flag `--gpus all`.
+## 5. Repetición de Experimentos
+
+Los experimentos presentados en el informe pueden reproducirse completamente utilizando el ejecutable principal del proyecto. Durante la ejecución se realizan automáticamente los benchmarks de rendimiento y la generación de los archivos de salida necesarios para el análisis físico del sistema.
+
+## 5.1 Parámetros utilizados
+
+Los parámetros por defecto se encuentran definidos en `src/main.cpp`.
+
+| Parámetro | Valor |
+|-----------|------:|
+| Número de partículas (N) | 1000 |
+| Semilla aleatoria | 42 |
+| Constante gravitacional (G) | 1.0 |
+| Softening | 0.1 |
+| Paso temporal (Δt) | 0.01 |
+| Repeticiones benchmark | 10 |
+| Pasos simulados | 500 |
+| Intervalo de muestreo | 10 |
+
+La utilización de una semilla fija (`seed = 42`) garantiza la reproducibilidad de los experimentos y permite comparar directamente los resultados obtenidos entre distintas implementaciones (serial, OpenMP y CUDA).
 
 ---
 
-### 3. Instrucciones de Compilación y Ejecución (Docker)
+## 5.2 Ejecución del simulador
 
-Dado que los servidores de Integración Continua (GitHub Actions) no disponen de una GPU física, los tests están diseñados para detectar dinámicamente la presencia de CUDA y omitir de forma limpia las pruebas de GPU si no hay hardware compatible, manteniendo la pipeline en verde.
+Desde el directorio `build` ejecutar:
 
-#### 3.1 Construcción del Entorno
-Construir la imagen de Docker localmente:
-```bash
-docker build -t nbody-cuda-test -f Dockerfile .
-```
+bash
+./nbody_app
 
-#### 3.2 Compilación del Proyecto
-Generar archivos de construcción y compilar dentro del contenedor:
-```bash
-docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS="-Wall -Wextra -Werror"
-docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test cmake --build build --parallel
-```
 
-Esto generará los siguientes ejecutables dentro de la carpeta `build`:
-*   `nbody_app`: Aplicación principal del simulador.
-*   `nbody_tests`: Suite de pruebas unitarias e integración de CPU y GPU.
-*   `test_benchmark`: Pruebas específicas para el módulo de benchmarking.
+Durante la ejecución el programa realiza automáticamente dos etapas:
+
+1. **Benchmark de rendimiento**, donde se evalúan las distintas implementaciones disponibles y se generan los archivos utilizados para el análisis de escalabilidad.
+
+2. **Visualización física**, donde se simula la evolución temporal del sistema almacenando periódicamente el estado completo de las partículas y las principales magnitudes físicas.
+
+Al finalizar se generan los siguientes archivos:
+
+| Archivo | Descripción |
+|----------|-------------|
+| `benchmark_results.dat` | Resultados de tiempos de ejecución de los distintos algoritmos evaluados. |
+| `scaling_analysis.dat` | Datos utilizados para el análisis de escalabilidad. |
+| `snapshots.dat` | Posición y masa de todas las partículas para cada instante muestreado de la simulación. |
+| `energy_timeseries.dat` | Evolución temporal de las métricas físicas del sistema. |
+
+El archivo `snapshots.dat` posee el siguiente formato:
+
+
+Step ID X Y Mass
+
+
+donde cada fila representa una partícula en un instante de tiempo determinado.
+
+Por su parte, `energy_timeseries.dat` almacena para cada muestra:
+
+
+Step
+KineticEnergy
+PotentialEnergy
+TotalEnergy
+CenterOfMassX
+CenterOfMassY
+RMSRadius
+MomentumX
+MomentumY
+MomentumMagnitude
+MinDistance
+
+
+Estas magnitudes permiten evaluar la estabilidad numérica de la simulación y verificar la conservación aproximada de las cantidades físicas.
 
 ---
 
-### 4. Ejecución de Pruebas
+## 5.3 Generación de gráficos
 
-Para ejecutar la suite completa de pruebas automáticas (en el contenedor, sólo se ejecutarán las pruebas CPU y se saltarán limpiamente las de GPU si no hay tarjeta de video disponible):
-```bash
-docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test ctest --test-dir build --output-on-failure
-```
+El repositorio incluye el script `plot.py`, encargado de procesar los archivos `.dat` generados por el simulador.
+
+**Importante:** el script debe ejecutarse desde la carpeta `build`, ya que allí se copian automáticamente tanto el script como los archivos de salida durante la compilación.
+
+bash
+cd build
+python3 plot.py
+
+
+Se requiere tener instaladas las siguientes bibliotecas:
+
+- Python 3
+- NumPy
+- Pandas
+- Matplotlib
+- Pillow
+
+El script genera automáticamente las figuras utilizadas para el análisis experimental, incluyendo:
+
+- Trayectorias de las partículas.
+- Evolución temporal de la energía.
+- Conservación del momento lineal.
+- Evolución del centro de masa.
+- Análisis de escalabilidad.
+- Comparación de tiempos de ejecución entre implementaciones.
 
 ---
 
-### 5. Repetición de Experimentos y Benchmarks (Clúster DIINF)
+## 5.4 Soporte GPU (CUDA)
 
-Las mediciones finales de performance no se aceptan desde CI, sino que deben ejecutarse únicamente en el clúster DIINF utilizando nodos con GPU dedicada.
+El proyecto incorpora una implementación opcional mediante CUDA para acelerar el cálculo de las aceleraciones gravitacionales.
 
-#### 5.1 Parámetros de Simulación Obligatorios
-La matriz de pruebas de rendimiento a cubrir en el nodo GPU del clúster DIINF incluye:
-*   **Tamaño de problema (N):** 256, 512, 1024, 2000 cuerpos.
-*   **Variante de Kernel:** Básica (0) y Memoria Compartida (1).
-*   **Tamaño de bloque (blockDim.x):** 64, 128, 256, 512, 1024.
-*   **Repeticiones por punto:** $\ge 10$ ejecuciones (reportando promedio $\bar{T} \pm \sigma_T$).
-*   **Pasos temporales:** $\ge 100$ pasos por corrida.
+La compilación GPU se habilita automáticamente cuando existe un CUDA Toolkit instalado. En caso contrario, el proyecto continúa compilando únicamente la versión CPU, manteniendo compatibilidad con entornos sin GPU (por ejemplo, la integración continua).
 
-#### 5.2 Generación de Gráficos
-Una vez ejecutados los benchmarks en el clúster y descargados los archivos `.dat` (`benchmark_results.dat`, `blockdim_study.dat` y `trajectories.dat`) a tu máquina local, puedes generar los gráficos requeridos ejecutando el script de Python dentro del contenedor Docker:
-```bash
-docker run --rm -v "${PWD}:/workspace" -w /workspace nbody-cuda-test python3 plot.py
-```
+### Compilar con CUDA
 
-Esto generará las figuras del informe (incluyendo análisis de Speedup, Amdahl, blockDim y trayectorias físicas).
-
-### 5.4 Lab 2: Soporte GPU (CUDA)
-
-El Lab 2 porta el cálculo de aceleraciones a GPU. El build CUDA es **opcional** y se autodetecta: si no hay CUDA Toolkit, el proyecto compila igual que en el Lab 1.
-
-```bash
-# Build con CUDA (requiere CUDA Toolkit >= 12 y una GPU NVIDIA)
+bash
 cmake -B build -DENABLE_CUDA=ON
 cmake --build build --parallel
-./build/nbody_gpu_tests   # tests de la capa GPU
 
-# Build solo CPU (comportamiento del Lab 1 / CI)
+
+### Ejecutar las pruebas GPU
+
+bash
+./build/nbody_gpu_tests
+
+
+### Compilar únicamente la versión CPU
+
+bash
 cmake -B build -DENABLE_CUDA=OFF
-```
+cmake --build build
 
-En el clúster DIINF fijar la arquitectura de la GPU del nodo, por ejemplo:
-`cmake -B build -DCMAKE_CUDA_ARCHITECTURES=75`
 
-**Esquema de transferencias por paso** (Euler se integra en host según el enunciado):
-- Masas: H2D **una sola vez** (no cambian durante la simulación).
-- Posiciones (x, y): H2D en cada paso (el host las actualiza con drift).
-- Aceleraciones (ax, ay): D2H en cada paso (las produce el kernel).
-- Velocidades: **nunca** tocan el device (solo las usa el host en kick).
+En el clúster DIINF puede especificarse manualmente la arquitectura CUDA:
 
-El layout en device es **SoA** (`d_mass`, `d_x`, `d_y`, `d_ax`, `d_ay`) para favorecer accesos coalesced. GPU usada en desarrollo local: NVIDIA GeForce GTX 1660 SUPER (sm_75, driver 596.36); las mediciones finales se ejecutan en el nodo GPU del clúster DIINF (documentar nodo, GPU, driver y versión de CUDA en cada corrida).
+bash
+cmake -B build -DENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75
+
 
 ---
 
-### 6. Consideraciones Técnicas y Físicas
+## 5.5 Transferencias entre CPU y GPU
 
-#### 6.1 Justificación de G = 1
-Se ha fijado la constante gravitacional $G = 1$ por las siguientes razones:
-*   **Técnica:** Previene problemas de *underflow* o *overflow* al trabajar con variables `double` y mejora la eficiencia computacional al evitar multiplicaciones por constantes extremadamente pequeñas en el kernel de CUDA.
-*   **Física:** Representa un sistema de unidades N-cuerpos adimensional.
+Siguiendo el enunciado del laboratorio, la integración temporal mediante Euler permanece ejecutándose en CPU, mientras que únicamente el cálculo de aceleraciones gravitacionales se realiza sobre la GPU.
 
-#### 6.2 Definición del Sistema de Unidades Físicas (Adimensionales)
-Para asegurar la coherencia física de la simulación con $G = 1$, definimos el sistema de unidades adimensionales del simulador en función de tres unidades fundamentales del sistema:
-*   **Masa ($[M]$):** Unidad de masa referencial, definida tal que la masa de una partícula típica o la masa total del sistema sea $1$ unidad de masa.
-*   **Longitud ($[L]$):** Unidad de longitud referencial, que define la escala del plano bidimensional (por ejemplo, el radio inicial de distribución de los cuerpos).
-*   **Tiempo ($[T]$):** Unidad de tiempo derivada del sistema, calculada de tal forma que la constante gravitatoria sea unitaria. La relación física es:
-    $$[T] = \sqrt{\frac{[L]^3}{G \cdot [M]}}$$
-    Con $G = 1$, un intervalo de tiempo simulado de $\Delta t = 0.01$ equivale a $0.01 [T]$.
-*   **Velocidad ($[V]$) y Aceleración ($[A]$):** Unidades derivadas del movimiento, expresadas como $[V] = [L]/[T]$ y $[A] = [L]/[T]^2$ respectivamente.
+En cada iteración ocurre el siguiente flujo de datos:
 
-#### 6.3 Criterio de Tolerancia CPU vs. GPU
-Debido a las diferencias de redondeo y acumulación en aritmética de punto flotante en paralelo dentro de la GPU, se define una tolerancia mixta aceptable para las aceleraciones:
-*   **Tolerancia Relativa (`rtol`):** $1 \times 10^{-4}$
-*   **Tolerancia Absoluta (`atol`):** $1 \times 10^{-8}$
-*   Fórmula de validación: $|a_{cpu} - a_{gpu}| \le \text{atol} + \text{rtol} \times |a_{cpu}|$
+- Las masas se copian al dispositivo una única vez al inicio de la simulación.
+- Las posiciones (`x`,`y`) se transfieren desde CPU hacia GPU en cada paso temporal.
+- El kernel CUDA calcula las aceleraciones.
+- Las aceleraciones (`ax`,`ay`) son copiadas nuevamente al host.
+- La actualización de velocidades y posiciones continúa ejecutándose en CPU.
+
+Las velocidades nunca son transferidas al dispositivo, ya que únicamente intervienen durante la integración realizada por el host.
+
+La memoria del dispositivo utiliza un esquema **Structure of Arrays (SoA)**:
+
+- `d_mass`
+- `d_x`
+- `d_y`
+- `d_ax`
+- `d_ay`
+
+Esta organización favorece accesos coalescentes a memoria global y mejora el rendimiento del kernel respecto a una representación basada en estructuras (AoS).
+
+---
+
+## 6. Consideraciones Técnicas
+
+### 6.1 Constante gravitacional
+
+Se adopta una constante gravitacional normalizada:
+
+
+G = 1
+
+
+Esta decisión posee dos ventajas principales:
+
+- Evita problemas numéricos asociados a constantes extremadamente pequeñas cuando se utilizan variables de doble precisión (`double`).
+- Permite trabajar en unidades adimensionales típicas de simulaciones N-Body, facilitando la comparación entre experimentos sin alterar el comportamiento físico relativo del sistema.
+
+---
+
+### 6.2 Parámetro de suavizado (Softening)
+
+El parámetro
+
+
+ε = 0.1
+
+
+se incorpora al denominador de la ley gravitacional para evitar singularidades cuando dos partículas se encuentran extremadamente próximas.
+
+Su utilización mejora la estabilidad numérica de la simulación y evita aceleraciones excesivamente grandes producto de distancias cercanas a cero.
+
+---
+
+### 6.3 Tolerancias numéricas
+
+Las comparaciones entre implementaciones CPU y GPU utilizan el criterio
+
+
+|GPU − CPU| ≤ atol + rtol · |CPU|
+
+
+con:
+
+- `rtol = 1 × 10⁻⁴`
+- `atol = 1 × 10⁻⁸`
+
+Estas tolerancias compensan las pequeñas diferencias producidas por:
+
+- distinto orden de acumulación de las sumas,
+- paralelismo masivo de la GPU,
+- utilización de instrucciones FMA (Fused Multiply-Add),
+- comportamiento normal de la aritmética de punto flotante.
+
+Para las pruebas puramente CPU se emplean tolerancias más estrictas (`1×10⁻¹⁰`), ya que el orden de las operaciones permanece prácticamente inalterado.
+
+---
+
+### 6.4 Implementación GPU (CUDA)
+
+La versión GPU del simulador acelera el cálculo de aceleraciones gravitacionales y el cálculo de la energía del sistema, manteniendo la integración temporal de Euler en la CPU, tal como establece el enunciado del laboratorio. De esta forma, únicamente los cálculos con mayor costo computacional son ejecutados sobre la GPU, mientras que la actualización de posiciones y velocidades continúa realizándose en el host.
+
+#### Organización de memoria
+
+El estado del sistema en el dispositivo se administra mediante la clase `DeviceNBodyState`, la cual encapsula todos los buffers CUDA utilizando la clase `CudaBuffer`. Esta última implementa el patrón RAII (Resource Acquisition Is Initialization), garantizando la correcta reserva (`cudaMalloc`) y liberación (`cudaFree`) automática de la memoria del dispositivo.
+
+En la GPU los datos se almacenan utilizando un esquema **Structure of Arrays (SoA)**, compuesto por los siguientes arreglos independientes:
+
+- `d_mass`
+- `d_x`
+- `d_y`
+- `d_ax`
+- `d_ay`
+- `d_vx`
+- `d_vy`
+
+A diferencia de una representación basada en estructuras (AoS), este diseño permite que hilos consecutivos accedan a posiciones contiguas de memoria global, favoreciendo accesos coalescentes y mejorando el ancho de banda efectivo de la GPU.
+
+#### Transferencias Host–Device
+
+Con el objetivo de minimizar el costo de comunicación entre CPU y GPU, únicamente se transfieren los datos estrictamente necesarios en cada paso temporal.
+
+Durante la simulación se sigue el siguiente esquema:
+
+- **Masas:** se copian una única vez al dispositivo, ya que permanecen constantes durante toda la simulación.
+- **Posiciones (x,y):** se transfieren desde el host al dispositivo en cada iteración, debido a que la integración de Euler actualiza estas variables en CPU.
+- **Aceleraciones (ax, ay):** una vez finalizado el kernel, son copiadas nuevamente al host para continuar la integración temporal.
+- **Velocidades:** solamente se transfieren cuando se calcula la energía del sistema en GPU; durante el cálculo de aceleraciones nunca son necesarias.
+
+Este esquema reduce significativamente el volumen de datos transferidos respecto a copiar el estado completo del sistema en cada iteración.
+
+---
+
+### Cálculo de aceleraciones en GPU
+
+El cálculo de aceleraciones mantiene el algoritmo directo del problema N-Body, cuya complejidad computacional es $O(N^2)$.
+
+Cada hilo CUDA es responsable de calcular la aceleración correspondiente a una única partícula.
+
+El índice global del hilo se obtiene mediante
+
+$$i = \text{blockIdx.x} \times \text{blockDim.x} + \text{threadIdx.x}$$
+
+y determina la partícula sobre la cual trabajará dicho hilo.
+
+Posteriormente, cada hilo recorre secuencialmente todas las partículas del sistema acumulando la contribución gravitacional producida por cada una de ellas.
+
+La configuración de lanzamiento utiliza una grilla unidimensional con tamaño
+
+$$gridSize = \left\lceil \frac{N}{blockSize} \right\rceil$$
+
+de modo que exista al menos un hilo disponible para cada cuerpo del sistema.
+
+El tamaño del bloque (`block_size`) es configurable por el usuario, validándose previamente que pertenezca al rango permitido por CUDA (1–1024 hilos por bloque).
+
+---
+
+### Variante básica
+
+La primera implementación utiliza exclusivamente memoria global.
+
+Cada hilo:
+
+1. Lee su posición.
+2. Recorre todas las partículas.
+3. Calcula las fuerzas gravitacionales.
+4. Acumula la aceleración total.
+5. Escribe el resultado final en `d_ax` y `d_ay`.
+
+Esta implementación es sencilla y sirve como referencia para validar la correctitud del algoritmo.
+
+---
+
+### Variante optimizada mediante memoria compartida
+
+La segunda implementación incorpora **Shared Memory** para reducir el número de accesos a memoria global.
+
+El procedimiento consiste en dividir el conjunto de partículas en **tiles** de tamaño igual al número de hilos por bloque.
+
+Para cada tile:
+
+1. Todos los hilos cooperan cargando posiciones y masas desde memoria global hacia memoria compartida.
+2. Se sincroniza el bloque mediante `__syncthreads()`.
+3. Cada hilo calcula las interacciones utilizando los datos almacenados en Shared Memory.
+4. Finalizado el procesamiento del tile, los hilos vuelven a sincronizarse antes de cargar el siguiente bloque de partículas.
+
+La memoria compartida almacena tres arreglos:
+
+- posiciones X,
+- posiciones Y,
+- masas.
+
+Cada uno posee un tamaño igual a `blockDim.x`, por lo que la memoria dinámica reservada durante el lanzamiento del kernel corresponde a
+
+$$3 \times blockDim \times sizeof(double)$$
+
+Este enfoque disminuye considerablemente la cantidad de accesos repetidos a memoria global, ya que todas las partículas pertenecientes a un tile son reutilizadas por los hilos del mismo bloque.
+
+---
+
+### Manejo del parámetro de suavizado (Softening)
+
+Para evitar singularidades cuando dos partículas se encuentran muy próximas, ambas implementaciones incorporan el parámetro de suavizado directamente en el cálculo de la distancia:
+
+$$r^2 = dx^2 + dy^2 + \varepsilon^2$$
+
+donde $\varepsilon$ corresponde al parámetro `softening`.
+
+La inclusión de este término evita divisiones por cero y reduce aceleraciones extremadamente grandes que podrían afectar la estabilidad numérica de la simulación.
+
+---
+
+### Cálculo de energía en GPU
+
+El cálculo de la energía también se ejecuta completamente sobre la GPU mediante dos estrategias independientes.
+
+#### Reducción paralela
+
+La primera implementación utiliza una reducción jerárquica en memoria compartida.
+
+Cada hilo calcula:
+
+- la energía cinética de una partícula;
+- la energía potencial considerando únicamente pares $j > i$, evitando contabilizar dos veces la misma interacción.
+
+Las contribuciones se reducen primero dentro de cada bloque mediante memoria compartida y posteriormente una segunda reducción combina los resultados parciales hasta obtener la energía total del sistema.
+
+Esta estrategia reduce significativamente el número de accesos a memoria global y minimiza la sincronización entre bloques.
+
+#### Acumulación mediante operaciones atómicas
+
+La segunda implementación calcula las mismas contribuciones individuales, pero cada hilo realiza únicamente dos operaciones `atomicAdd` sobre variables globales:
+
+- una para la energía cinética;
+- una para la energía potencial.
+
+Esta versión presenta una implementación más sencilla, aunque puede experimentar mayor contención cuando muchos hilos intentan actualizar simultáneamente las mismas posiciones de memoria.
+
+---
+
+### Decisiones de diseño
+
+Las principales decisiones adoptadas en la implementación CUDA fueron:
+
+- mantener la integración temporal en CPU para respetar la arquitectura propuesta por el laboratorio;
+- minimizar las transferencias Host–Device copiando únicamente los datos estrictamente necesarios;
+- utilizar una representación SoA para favorecer accesos coalescentes;
+- ofrecer dos implementaciones del cálculo de aceleraciones (memoria global y memoria compartida) con fines comparativos;
+- implementar dos estrategias distintas para el cálculo de energía (reducción paralela y operaciones atómicas), permitiendo evaluar el impacto de diferentes mecanismos de sincronización en GPU.
+
+Estas decisiones permiten comparar distintas técnicas de programación CUDA manteniendo una implementación fácilmente verificable respecto a la versión secuencial utilizada como referencia.

@@ -207,17 +207,33 @@ def plot_scaling(df_scale, df_serial=None, out='benchmark_scaling.png'):
     )
     ax2.plot(threads, threads, 'k--', alpha=0.6, label='Ideal (S=p)')
 
+    # Extraemos f de df_serial si está disponible para graficar Gustafson
+    f_val = 0.0
+    if df_serial is not None and 'f_amdahl' in df_serial.columns and len(df_serial) > 0:
+        f_val = df_serial['f_amdahl'].iloc[0]
+
     if 'amdahl_speedup' in df_scale.columns:
         ax2.plot(
             threads,
             df_scale['amdahl_speedup'],
             'r-.',
-            label='Amdahl (f estimada)'
+            label='Amdahl (Strong Scaling)'
+        )
+
+    if f_val > 0.0:
+        # Gustafson: S_G(p) = p + (1 - p) * f
+        gustafson_S = threads + (1.0 - threads) * f_val
+        ax2.plot(
+            threads,
+            gustafson_S,
+            'g:',
+            linewidth=2,
+            label='Gustafson (Weak Scaling)'
         )
 
     ax2.set_xlabel('Numero de threads')
     ax2.set_ylabel('Speedup')
-    ax2.set_title('Speedup vs threads (con Amdahl)')
+    ax2.set_title('Speedup vs threads (Amdahl & Gustafson)')
     ax2.legend()
     ax2.grid(alpha=0.3)
 
@@ -258,6 +274,51 @@ def plot_scaling(df_scale, df_serial=None, out='benchmark_scaling.png'):
         ax4.grid(alpha=0.3, which='both')
     else:
         ax4.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[ok] {out}")
+
+
+def plot_scaling_errors(df_scale, out='benchmark_scaling_errors.png'):
+    """Grafica la magnitud de los errores propagados por separado."""
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    ax1, ax2 = axes
+
+    threads = df_scale['threads'].values
+
+    # Grafico 1: Error de Speedup vs Threads
+    ax1.plot(
+        threads,
+        df_scale['speedup_err'],
+        marker='o',
+        color='C1',
+        linestyle='-',
+        linewidth=2,
+        label='Error de Speedup (σ_Sp)'
+    )
+    ax1.set_xlabel('Número de threads')
+    ax1.set_ylabel('Desviación estándar del Speedup (σ_Sp)')
+    ax1.set_title('Magnitud del Error del Speedup vs Threads')
+    ax1.grid(alpha=0.3)
+    ax1.legend()
+
+    # Grafico 2: Error de Eficiencia vs Threads
+    ax2.plot(
+        threads,
+        df_scale['eff_err'] * 100,  # expresado en porcentaje
+        marker='^',
+        color='C2',
+        linestyle='-',
+        linewidth=2,
+        label='Error de Eficiencia (σ_Ep)'
+    )
+    ax2.set_xlabel('Número de threads')
+    ax2.set_ylabel('Desviación estándar de Eficiencia (%)')
+    ax2.set_title('Magnitud del Error de la Eficiencia vs Threads')
+    ax2.grid(alpha=0.3)
+    ax2.legend()
 
     plt.tight_layout()
     plt.savefig(out, dpi=200, bbox_inches='tight')
@@ -515,6 +576,118 @@ def plot_energy_timeseries(df_energy, out='nbody_energy_timeseries.png'):
     print(f"[ok] {out}")
 
 
+def plot_gpu_benchmarks(filename='blockdim_study.dat'):
+    if not os.path.exists(filename):
+        print(f"[!] No se encontro {filename}. Saltando graficos de GPU.")
+        return
+
+    try:
+        df = pd.read_csv(filename, sep=r'\s+', comment='#',
+                         names=['N', 'Variant', 'BlockSize', 'KernelOnlyMean', 'KernelOnlyStdDev', 'EndToEndMean', 'EndToEndStdDev', 'CpuMean', 'CpuStdDev'])
+        print(f"[ok] Leido {filename}: {len(df)} filas")
+
+        n_max = df['N'].max()
+        df_n = df[df['N'] == n_max]
+
+        plt.figure(figsize=(8, 5))
+        for var, label, color in [(0, 'Basico (Global)', 'C0'), (1, 'Shared Memory', 'C1')]:
+            sub = df_n[df_n['Variant'] == var].sort_values('BlockSize')
+            if not sub.empty:
+                plt.errorbar(sub['BlockSize'], sub['EndToEndMean'], yerr=sub['EndToEndStdDev'],
+                             fmt='-o', capsize=5, label=f'{label} - End-to-End', color=color)
+                plt.errorbar(sub['BlockSize'], sub['KernelOnlyMean'], yerr=sub['KernelOnlyStdDev'],
+                             fmt='--s', capsize=5, label=f'{label} - Kernel Only', color=color, alpha=0.7)
+
+        plt.xscale('log', base=2)
+        plt.xticks([64, 128, 256, 512, 1024], [64, 128, 256, 512, 1024])
+        plt.xlabel('blockDim.x')
+        plt.ylabel('Tiempo (segundos)')
+        plt.title(f'Estudio de blockDim.x vs Tiempo de Ejecucion (N={n_max})')
+        plt.grid(True, which="both", ls="--", alpha=0.5)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('gpu_blockdim_study.png', dpi=200)
+        plt.close()
+        print("[ok] Generado gpu_blockdim_study.png")
+
+        df_var1_b256 = df[(df['Variant'] == 1) & (df['BlockSize'] == 256)].sort_values('N')
+        if not df_var1_b256.empty:
+            plt.figure(figsize=(8, 5))
+            x = np.arange(len(df_var1_b256))
+            width = 0.35
+
+            transfers = df_var1_b256['EndToEndMean'] - df_var1_b256['KernelOnlyMean']
+            pct_transfers = (transfers / df_var1_b256['EndToEndMean']) * 100
+
+            plt.bar(x - width/2, df_var1_b256['EndToEndMean'], width, label='End-to-End (con Copias)', color='#2ca02c')
+            plt.bar(x + width/2, df_var1_b256['KernelOnlyMean'], width, label='Kernel-Only (Sin Copias)', color='#ff7f0e')
+
+            for i, val in enumerate(pct_transfers):
+                plt.text(i - width/2, df_var1_b256['EndToEndMean'].iloc[i] * 1.02, f"{val:.1f}% copias",
+                         ha='center', fontsize=9, fontweight='bold')
+
+            plt.xticks(x, df_var1_b256['N'])
+            plt.xlabel('Tamaño de problema (N)')
+            plt.ylabel('Tiempo (segundos)')
+            plt.title('Impacto de Transferencias Host-Device (Shared, blockDim=256)')
+            plt.legend()
+            plt.grid(True, axis='y', ls='--', alpha=0.5)
+            plt.tight_layout()
+            plt.savefig('gpu_transfers_impact.png', dpi=200)
+            plt.close()
+            print("[ok] Generado gpu_transfers_impact.png")
+
+        df_gpu_b256 = df[df['BlockSize'] == 256]
+        df_basic = df_gpu_b256[df_gpu_b256['Variant'] == 0].sort_values('N')
+        df_shared = df_gpu_b256[df_gpu_b256['Variant'] == 1].sort_values('N')
+
+        if not df_basic.empty:
+            plt.figure(figsize=(8, 5))
+
+            speedup_basic = df_basic['CpuMean'] / df_basic['EndToEndMean']
+            speedup_shared = df_shared['CpuMean'] / df_shared['EndToEndMean']
+
+            err_basic = speedup_basic * np.sqrt((df_basic['CpuStdDev']/df_basic['CpuMean'])**2 + (df_basic['EndToEndStdDev']/df_basic['EndToEndMean'])**2)
+            err_shared = speedup_shared * np.sqrt((df_shared['CpuStdDev']/df_shared['CpuMean'])**2 + (df_shared['EndToEndStdDev']/df_shared['EndToEndMean'])**2)
+
+            plt.errorbar(df_basic['N'], speedup_basic, yerr=err_basic, fmt='-o', capsize=5, label='Kernel Basico (Global)', color='C0')
+            plt.errorbar(df_shared['N'], speedup_shared, yerr=err_shared, fmt='-s', capsize=5, label='Kernel Shared Memory', color='C1')
+
+            plt.axhline(1.0, color='red', linestyle='--', alpha=0.6, label='CPU Lineal (1.0x)')
+            plt.xlabel('Tamaño de problema (N)')
+            plt.ylabel('Speedup (T_cpu / T_gpu_e2e)')
+            plt.title('Speedup GPU vs CPU Serial (blockDim=256)')
+            plt.grid(True, ls='--', alpha=0.5)
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig('gpu_speedup_vs_n.png', dpi=200)
+            plt.close()
+            print("[ok] Generado gpu_speedup_vs_n.png")
+
+        if not df_shared.empty:
+            plt.figure(figsize=(8, 5))
+
+            f = (df_shared['EndToEndMean'] - df_shared['KernelOnlyMean']) / df_shared['EndToEndMean']
+            s_measured = df_shared['CpuMean'] / df_shared['EndToEndMean']
+            s_kernel = df_shared['CpuMean'] / df_shared['KernelOnlyMean']
+
+            plt.plot(df_shared['N'], s_measured, '-o', label='Speedup Medido E2E (Con overhead de copias)')
+            plt.plot(df_shared['N'], s_kernel, '--s', label='Límite de Amdahl (Kernel Only, f=0)')
+
+            plt.xlabel('Tamaño de problema (N)')
+            plt.ylabel('Speedup')
+            plt.title('Amdahl Limit: Impacto de la Fraccion Serial (Copias H2D/D2H)')
+            plt.grid(True, ls='--', alpha=0.5)
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig('gpu_amdahl_curve.png', dpi=200)
+            plt.close()
+            print("[ok] Generado gpu_amdahl_curve.png")
+
+    except Exception as e:
+        print(f"[!] Error al graficar benchmarks de GPU: {e}")
+
+
 def main():
     print(">> Generando visualizaciones de benchmarks...")
 
@@ -556,6 +729,7 @@ def main():
 
     if df_scale is not None:
         plot_scaling(df_scale, df_serial)
+        plot_scaling_errors(df_scale)
 
     print(">> Generando visualizaciones fisicas del sistema...")
 
@@ -588,6 +762,8 @@ def main():
             plot_energy_timeseries(df_energy)
     else:
         print("[!] No se encontro energy_timeseries.dat ni energia.dat")
+
+    plot_gpu_benchmarks('blockdim_study.dat')
 
     print(">> Listo.")
 

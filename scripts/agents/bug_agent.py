@@ -1,13 +1,14 @@
 import os
 import json
 import uuid
-from github import Github
-from google import genai 
+from github import Github, Auth
+from google import genai
 
 def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return {"encontro_bug": False}
+
     client = genai.Client(api_key=api_key)
     
     prompt = f"""
@@ -32,12 +33,13 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
     
     try:
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-3.6-flash',
             contents=prompt
         )
         texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(texto_limpio)
-    except Exception:
+    except Exception as e:
+        print(f"Error detallado de la IA: {e}")
         return {"encontro_bug": False}
 
 def main():
@@ -48,13 +50,14 @@ def main():
         print("Error: Faltan variables de entorno de GitHub.")
         exit(1)
 
-    g = Github(token)
+    auth = Auth.Token(token)
+    g = Github(auth=auth)
     repo = g.get_repo(repo_name)
     
     try:
-        archivos_cuda = repo.get_contents("kernels")
+        archivos_cuda = repo.get_contents("src/kernels")
     except Exception:
-        print("No se encontró la carpeta 'kernels/'.")
+        print("No se encontró la carpeta 'src/kernels/'.")
         return
 
     for archivo in archivos_cuda:

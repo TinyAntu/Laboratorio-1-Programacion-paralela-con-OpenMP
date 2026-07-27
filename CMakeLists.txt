@@ -24,11 +24,16 @@ find_package(OpenMP REQUIRED)
 option(ENABLE_CUDA "Compilar el soporte GPU (kernels CUDA del Lab 2)" ON)
 
 set(NBODY_CUDA_ENABLED OFF)
+
 if(ENABLE_CUDA)
   include(CheckLanguage)
   check_language(CUDA)
+
   if(CMAKE_CUDA_COMPILER)
-    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES OR CMAKE_CUDA_ARCHITECTURES STREQUAL "")
+    if(
+      NOT DEFINED CMAKE_CUDA_ARCHITECTURES
+      OR CMAKE_CUDA_ARCHITECTURES STREQUAL ""
+    )
       # native = la GPU de la máquina actual; en el clúster DIINF se puede
       # fijar con -DCMAKE_CUDA_ARCHITECTURES=<sm de la GPU del nodo>
       if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
@@ -37,13 +42,25 @@ if(ENABLE_CUDA)
         set(CMAKE_CUDA_ARCHITECTURES 75)
       endif()
     endif()
+
     enable_language(CUDA)
+
     set(CMAKE_CUDA_STANDARD 17)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
     set(NBODY_CUDA_ENABLED ON)
-    message(STATUS "CUDA habilitado (CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES})")
+
+    message(
+      STATUS
+      "CUDA habilitado "
+      "(CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES})"
+    )
   else()
-    message(STATUS "CUDA Toolkit no encontrado: build solo CPU (métodos GPU deshabilitados)")
+    message(
+      STATUS
+      "CUDA Toolkit no encontrado: build solo CPU "
+      "(métodos GPU deshabilitados)"
+    )
   endif()
 endif()
 
@@ -61,40 +78,56 @@ target_include_directories(nbody_core PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 
-target_link_libraries(nbody_core PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(nbody_core PUBLIC
+  OpenMP::OpenMP_CXX
+)
 
 if(NBODY_CUDA_ENABLED)
   target_sources(nbody_core PRIVATE
     src/NBodySystemGpu.cu
     src/kernels/accelerations.cu
+    src/kernels/metrics.cu
   )
+
   # PUBLIC: NBodySystem.cpp y los tests deciden con este define si compilar
-  # los stubs sin CUDA o usar las definiciones reales de NBodySystemGpu.cu
-  target_compile_definitions(nbody_core PUBLIC NBODY_HAS_CUDA)
+  # los stubs sin CUDA o usar las definiciones reales de NBodySystemGpu.cu.
+  target_compile_definitions(nbody_core PUBLIC
+    NBODY_HAS_CUDA
+  )
 endif()
 
-add_executable(nbody_app src/main.cpp)
+add_executable(nbody_app
+  src/main.cpp
+)
 
-target_link_libraries(nbody_app PRIVATE nbody_core)
+target_link_libraries(nbody_app PRIVATE
+  nbody_core
+)
 
-# Copiar el script de graficación al directorio de construcción
+# Copiar el script de graficación al directorio de construcción.
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/plot.py
-    ${CMAKE_CURRENT_BINARY_DIR}/plot.py
-    COPYONLY
+  "${CMAKE_CURRENT_SOURCE_DIR}/plot.py"
+  "${CMAKE_CURRENT_BINARY_DIR}/plot.py"
+  COPYONLY
 )
 
 include(CTest)
 
 if(BUILD_TESTING)
   include(FetchContent)
+
   FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG        v1.14.0
   )
+
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
   FetchContent_MakeAvailable(googletest)
+
+  # Debe cargarse antes de usar gtest_discover_tests().
+  include(GoogleTest)
 
   add_executable(nbody_tests
     tests/test_main.cpp
@@ -105,20 +138,43 @@ if(BUILD_TESTING)
     tests/test_integrator.cpp
   )
 
-  target_link_libraries(nbody_tests PRIVATE nbody_core GTest::gtest_main)
+  target_link_libraries(nbody_tests PRIVATE
+    nbody_core
+    GTest::gtest_main
+  )
 
-  add_executable(test_benchmark tests/test_Benchmark.cpp)
-  target_link_libraries(test_benchmark PRIVATE nbody_core GTest::gtest_main)
-
-  add_test(NAME test_benchmark COMMAND test_benchmark)
-
-  # Tests GPU (Lab2): solo se compilan si hay CUDA; requieren una GPU NVIDIA
-  if(NBODY_CUDA_ENABLED)
-    add_executable(nbody_gpu_tests tests/test_CudaMemory.cu)
-    target_link_libraries(nbody_gpu_tests PRIVATE nbody_core GTest::gtest_main)
-    add_test(NAME nbody_gpu_tests COMMAND nbody_gpu_tests)
-  endif()
-
-  include(GoogleTest)
   gtest_discover_tests(nbody_tests)
+
+  add_executable(test_benchmark
+    tests/test_Benchmark.cpp
+  )
+
+  target_link_libraries(test_benchmark PRIVATE
+    nbody_core
+    GTest::gtest_main
+  )
+
+  add_test(
+    NAME test_benchmark
+    COMMAND test_benchmark
+  )
+
+  # Tests GPU (Lab2): solo se compilan si hay CUDA;
+  # para ejecutarlos se requiere una GPU NVIDIA disponible.
+  if(NBODY_CUDA_ENABLED)
+    add_executable(nbody_gpu_tests
+      tests/test_CudaMemory.cu
+    )
+
+    target_link_libraries(nbody_gpu_tests PRIVATE
+      nbody_core
+      GTest::gtest_main
+    )
+
+    set_target_properties(nbody_gpu_tests PROPERTIES
+      CUDA_SEPARABLE_COMPILATION ON
+    )
+
+    gtest_discover_tests(nbody_gpu_tests)
+  endif()
 endif()

@@ -4,3 +4,4 @@
 *.exe
 # ignorar la carpeta build
 /build
+/build_wsl

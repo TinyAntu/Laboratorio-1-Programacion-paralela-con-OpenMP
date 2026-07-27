@@ -443,7 +443,7 @@ std::vector<ScalingResult> Benchmark::runScalingAnalysis(
         double sigTp = tr.stddev;
 
         double Sp    = (Tp > 0.0 && T1 > 0.0) ? T1 / Tp : 0.0;
-        double sigSp = (Tp > 0.0 && T1 > 0.0 && sigT1 > 0.0 && sigTp > 0.0)
+        double sigSp = (Tp > 0.0 && T1 > 0.0)
                        ? speedupError(T1, sigT1, Tp, sigTp) : 0.0;
         double Ep    = (p > 0) ? Sp / p : 0.0;
         double sigEp = (p > 0) ? sigSp / p : 0.0;
@@ -734,4 +734,145 @@ void Benchmark::runAll(int max_threads_override) {
         scaling_phase.serial_fraction);
 
     std::cout << "[Benchmark] Finalizado.\n";
+}
+
+TimingResult Benchmark::benchmarkKernelOnly(int variant, int block_size) {
+#ifdef NBODY_HAS_CUDA
+    std::vector<double> times;
+    times.reserve(repetitions);
+    for (int r = 0; r < repetitions; ++r) {
+        NBodySystem* sys = makeSystem();
+        double t = sys->computeAccelerationsGpuKernelOnly(variant, block_size);
+        times.push_back(t);
+        delete sys;
+    }
+    return computeStats(times);
+#else
+    (void)variant; (void)block_size;
+    throw std::runtime_error("benchmarkKernelOnly: Compilado sin soporte CUDA");
+#endif
+}
+
+TimingResult Benchmark::benchmarkEndToEnd(int variant, int block_size) {
+#ifdef NBODY_HAS_CUDA
+    std::vector<double> times;
+    times.reserve(repetitions);
+    for (int r = 0; r < repetitions; ++r) {
+        NBodySystem* sys = makeSystem();
+        double t = sys->computeAccelerationsGpuEndToEnd(variant, block_size);
+        times.push_back(t);
+        delete sys;
+    }
+    return computeStats(times);
+#else
+    (void)variant; (void)block_size;
+    throw std::runtime_error("benchmarkEndToEnd: Compilado sin soporte CUDA");
+#endif
+}
+
+TimingResult Benchmark::compareCpuGpu(int n_bodies) {
+#ifdef NBODY_HAS_CUDA
+    // Ejecutar referencia CPU serial
+    NBodySystem* cpu_sys = new NBodySystem(G_const, softening);
+    cpu_sys->loadFromSeed(seed, n_bodies);
+    double t0 = omp_get_wtime();
+    cpu_sys->computeAccelerations();
+    double cpu_time = omp_get_wtime() - t0;
+    const auto& cpu_bodies = cpu_sys->getBodies();
+    (void)cpu_time; // evitar warning unused
+
+    std::vector<double> times;
+    times.reserve(repetitions);
+    for (int r = 0; r < repetitions; ++r) {
+        NBodySystem* gpu_sys = new NBodySystem(G_const, softening);
+        gpu_sys->loadFromSeed(seed, n_bodies);
+
+        double t = gpu_sys->computeAccelerationsGpuEndToEnd(0, 256);
+        times.push_back(t);
+
+        if (r == 0) {
+            const auto& gpu_bodies = gpu_sys->getBodies();
+            for (int i = 0; i < n_bodies; ++i) {
+                double diff_x = std::abs(gpu_bodies[i].getAx() - cpu_bodies[i].getAx());
+                double diff_y = std::abs(gpu_bodies[i].getAy() - cpu_bodies[i].getAy());
+                double tol_x = 1e-8 + 1e-4 * std::abs(cpu_bodies[i].getAx());
+                double tol_y = 1e-8 + 1e-4 * std::abs(cpu_bodies[i].getAy());
+                if (diff_x > tol_x || diff_y > tol_y) {
+                    delete gpu_sys;
+                    delete cpu_sys;
+                    throw std::runtime_error("compareCpuGpu: Validacion CPU vs GPU fallo");
+                }
+            }
+        }
+        delete gpu_sys;
+    }
+    delete cpu_sys;
+    return computeStats(times);
+#else
+    (void)n_bodies;
+    throw std::runtime_error("compareCpuGpu: Compilado sin soporte CUDA");
+#endif
+}
+
+void Benchmark::runGpuBenchmarks() {
+#ifdef NBODY_HAS_CUDA
+    std::cout << "[Benchmark] Ejecutando benchmarks CUDA (Estudio blockDim.x y Speedup)..." << std::endl;
+
+    std::vector<int> N_sizes = {256, 512, 1024, 2000};
+    std::vector<int> block_sizes = {64, 128, 256, 512, 1024};
+    std::vector<int> variants = {0, 1};
+
+    std::ofstream out("blockdim_study.dat");
+    if (!out) {
+        std::cerr << "[Benchmark] Error al crear blockdim_study.dat" << std::endl;
+        return;
+    }
+
+    out << "# N Variant BlockSize KernelOnlyMean KernelOnlyStdDev EndToEndMean EndToEndStdDev CpuMean CpuStdDev\n";
+
+    for (int n : N_sizes) {
+        std::cout << "  N = " << n << std::endl;
+        
+        // Medimos el CPU serial para este N
+        int old_N = N_bodies;
+        N_bodies = n;
+        TimingResult cpu_res = benchmarkSerial(1);
+        N_bodies = old_N;
+        
+        std::cout << "    CPU Serial: " << cpu_res.mean << "s" << std::endl;
+
+        for (int var : variants) {
+            std::cout << "    Variante = " << (var == 0 ? "Basica" : "Shared") << std::endl;
+            for (int block : block_sizes) {
+                N_bodies = n;
+
+                TimingResult k_only = benchmarkKernelOnly(var, block);
+                TimingResult e2e = benchmarkEndToEnd(var, block);
+
+                N_bodies = old_N;
+
+                out << n << " " << var << " " << block << " "
+                    << k_only.mean << " " << k_only.stddev << " "
+                    << e2e.mean << " " << e2e.stddev << " "
+                    << cpu_res.mean << " " << cpu_res.stddev << "\n";
+
+                std::cout << "      blockDim.x = " << block
+                          << " | KernelOnly: " << std::scientific << k_only.mean << "s"
+                          << " | EndToEnd: " << e2e.mean << "s" << std::defaultfloat << std::endl;
+            }
+        }
+    }
+    out.close();
+    std::cout << "[Benchmark] blockdim_study.dat generado con exito." << std::endl;
+
+    std::cout << "[Benchmark] Ejecutando comparacion CPU vs GPU..." << std::endl;
+    try {
+        TimingResult gpu_time = compareCpuGpu(1000);
+        std::cout << "[Benchmark] CPU vs GPU comparacion exitosa. Tiempo GPU: " << gpu_time.mean << " s" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "[Benchmark] Error en comparacion CPU vs GPU: " << e.what() << std::endl;
+    }
+#else
+    std::cout << "[Benchmark] CUDA deshabilitado. Omitiendo benchmarks GPU." << std::endl;
+#endif
 }
