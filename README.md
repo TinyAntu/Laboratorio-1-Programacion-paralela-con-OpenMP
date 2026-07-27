@@ -538,4 +538,117 @@ Las principales decisiones adoptadas en la implementación CUDA fueron:
 - ofrecer dos implementaciones del cálculo de aceleraciones (memoria global y memoria compartida) con fines comparativos;
 - implementar dos estrategias distintas para el cálculo de energía (reducción paralela y operaciones atómicas), permitiendo evaluar el impacto de diferentes mecanismos de sincronización en GPU.
 
-Estas decisiones permiten comparar distintas técnicas de programación CUDA manteniendo una implementación fácilmente verificable respecto a la versión secuencial utilizada como referencia.
+## 7. Agentes de Integración Continua (CI)
+
+Como complemento al pipeline tradicional de integración continua, el proyecto incorpora tres agentes inteligentes que utilizan modelos de lenguaje (Google Gemini) para asistir el proceso de revisión del código y la documentación. Estos agentes no reemplazan la revisión humana, sino que automatizan tareas repetitivas y clasifican los cambios según su impacto.
+
+Todos los agentes se ejecutan mediante **GitHub Actions**, utilizan la API de GitHub para interactuar con el repositorio y emplean la biblioteca **Google GenAI** para realizar el análisis del contenido.
+
+### 7.1 Agente Revisor de Bugs
+
+El agente de bugs analiza automáticamente los archivos CUDA (`.cu` y `.cuh`) ubicados en `src/kernels/`.
+
+Su objetivo es detectar problemas relacionados con la implementación GPU, tales como:
+
+- ausencia de verificaciones mediante `CUDA_CHECK`;
+- errores en el manejo de memoria CUDA;
+- posibles desincronizaciones entre host y device;
+- errores evidentes en pruebas unitarias;
+- problemas lógicos asociados al comportamiento del kernel.
+
+Cada problema encontrado es clasificado en una de dos categorías:
+
+**Errores mecánicos**
+
+Corresponden a errores simples que pueden corregirse automáticamente sin modificar la lógica del programa, por ejemplo:
+
+- omisión de una llamada a `CUDA_CHECK`;
+- errores tipográficos;
+- pequeñas inconsistencias de implementación.
+
+En estos casos el agente:
+
+1. crea automáticamente una nueva rama;
+2. aplica la corrección propuesta por el modelo;
+3. realiza el commit;
+4. genera automáticamente un Pull Request hacia `main`.
+
+**Errores complejos**
+
+Cuando el problema puede afectar:
+
+- la física de la simulación;
+- la API pública;
+- la lógica de los kernels CUDA;
+- la estabilidad numérica;
+
+el agente no modifica el código.
+
+En su lugar genera automáticamente un **Issue**, describiendo el problema detectado para que sea revisado por un desarrollador.
+
+---
+
+### 7.2 Agente Documentador
+
+Este agente analiza automáticamente la documentación del proyecto, actualmente:
+
+- `README.md`
+- `CHANGELOG.md`
+
+Su objetivo es detectar:
+
+- errores ortográficos;
+- problemas de formato;
+- enlaces rotos;
+- documentación incompleta;
+- ausencia de explicaciones técnicas relevantes.
+
+Al igual que el agente de bugs, clasifica los problemas en dos grupos.
+
+Para errores puramente mecánicos genera automáticamente una rama con la documentación corregida y crea un Pull Request.
+
+Cuando identifica deficiencias técnicas que requieren criterio de ingeniería (por ejemplo, falta de documentación sobre el funcionamiento de un kernel CUDA o sobre decisiones de diseño), abre automáticamente un Issue solicitando intervención humana sin modificar el repositorio.
+
+---
+
+### 7.3 Agente Revisor de Pull Requests
+
+Cada Pull Request abierto hacia la rama principal es analizado automáticamente por un tercer agente especializado.
+
+Este agente inspecciona el **diff completo** del Pull Request y determina si los cambios corresponden a modificaciones mecánicas o si requieren revisión manual.
+
+Para ello considera criterios como:
+
+- modificación exclusiva de documentación;
+- cambios de formato;
+- refactorizaciones sin alterar el comportamiento;
+- modificaciones sobre la lógica física;
+- cambios en la API pública;
+- alteraciones en los kernels CUDA.
+
+Además, consulta el estado del pipeline de integración continua antes de emitir su recomendación.
+
+Como resultado publica automáticamente un comentario en el Pull Request indicando:
+
+- estado del pipeline de CI;
+- clasificación del cambio (mecánico o complejo);
+- explicación del análisis realizado por el modelo;
+- recomendación de revisión.
+
+Por razones de seguridad, este agente **nunca realiza merges automáticos** hacia la rama `main`; la decisión final permanece bajo responsabilidad de un desarrollador.
+
+---
+
+### 7.4 Arquitectura del flujo de trabajo
+
+El flujo completo implementado por los agentes puede resumirse de la siguiente forma:
+
+1. Un desarrollador realiza un commit o abre un Pull Request.
+2. GitHub Actions ejecuta automáticamente el agente correspondiente.
+3. El agente obtiene el contenido del repositorio mediante la API de GitHub.
+4. El contenido es analizado utilizando un modelo Gemini.
+5. El modelo clasifica el resultado como **mecánico** o **complejo**.
+6. Dependiendo de la clasificación:
+   - se crea automáticamente un Pull Request con la corrección propuesta; o
+   - se genera un Issue para revisión humana.
+7. Finalmente, el agente registra el resultado dentro del repositorio mediante comentarios, Pull Requests o Issues.
