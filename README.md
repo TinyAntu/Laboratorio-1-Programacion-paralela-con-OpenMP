@@ -215,7 +215,7 @@ Al finalizar se generan los siguientes archivos:
 
 El archivo `snapshots.dat` posee el siguiente formato:
 
-
+text
 Step ID X Y Mass
 
 
@@ -223,7 +223,7 @@ donde cada fila representa una partícula en un instante de tiempo determinado.
 
 Por su parte, `energy_timeseries.dat` almacena para cada muestra:
 
-
+text
 Step
 KineticEnergy
 PotentialEnergy
@@ -337,9 +337,9 @@ Esta organización favorece accesos coalescentes a memoria global y mejora el re
 
 Se adopta una constante gravitacional normalizada:
 
-
+$$
 G = 1
-
+$$
 
 Esta decisión posee dos ventajas principales:
 
@@ -352,9 +352,9 @@ Esta decisión posee dos ventajas principales:
 
 El parámetro
 
-
-ε = 0.1
-
+$$
+\varepsilon = 0.1
+$$
 
 se incorpora al denominador de la ley gravitacional para evitar singularidades cuando dos partículas se encuentran extremadamente próximas.
 
@@ -366,9 +366,9 @@ Su utilización mejora la estabilidad numérica de la simulación y evita aceler
 
 Las comparaciones entre implementaciones CPU y GPU utilizan el criterio
 
-
-|GPU − CPU| ≤ atol + rtol · |CPU|
-
+$$
+|GPU - CPU| \le atol + rtol \cdot |CPU|
+$$
 
 con:
 
