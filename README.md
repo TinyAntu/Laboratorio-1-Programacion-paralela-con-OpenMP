@@ -26,7 +26,7 @@ El proyecto utiliza **CMake** como sistema de construcción y soporta dos modos 
 - **CPU (OpenMP)**: siempre disponible.
 - **GPU (CUDA)**: se habilita automáticamente si se encuentra un CUDA Toolkit instalado.
 
-# Requisitos
+#### Requisitos
 
 - Compilador compatible con **C++17**
 - **CMake 3.16** o superior
@@ -34,74 +34,74 @@ El proyecto utiliza **CMake** como sistema de construcción y soporta dos modos 
 - *(Opcional)* **CUDA Toolkit** para habilitar la aceleración por GPU
 - GoogleTest se descarga automáticamente durante la configuración mediante CMake.
 
-# Compilación
+#### Compilación
 
-```bash
+bash
 mkdir build
 cd build
 cmake ..
 make
-```
 
-# Compilación solo CPU
+
+#### Compilación solo CPU
 
 Si no se desea compilar el soporte CUDA:
 
-```bash
+bash
 mkdir build
 cd build
 cmake -DENABLE_CUDA=OFF ..
 make
-```
 
-# Compilación con CUDA
+
+#### Compilación con CUDA
 
 Si el CUDA Toolkit está instalado, el soporte GPU se habilita automáticamente:
 
-```bash
+bash
 mkdir build
 cd build
 cmake -DENABLE_CUDA=ON ..
 make
-```
+
 
 Si es necesario especificar la arquitectura de la GPU:
 
-```bash
+bash
 cmake -DENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75 ..
 make
-```
+
 
 (Reemplace `75` por la arquitectura correspondiente a su GPU.)
 
-# Ejecutar la aplicación
+#### Ejecutar la aplicación
 
-```bash
+bash
 ./nbody_app
-```
 
-# Ejecutar las pruebas
+
+#### Ejecutar las pruebas
 
 Ejecutar todas las pruebas registradas por CTest:
 
-```bash
+bash
 ctest
-```
+
 
 O ejecutar un ejecutable específico:
 
-```bash
+bash
 ./nbody_tests
 ./test_benchmark
-```
+
 
 Si CUDA está habilitado, también se generará:
 
-```bash
+bash
 ./nbody_gpu_tests
-```
 
-# Ejecutables generados
+
+#### Ejecutables generados
 
 Dependiendo de la configuración, se generarán los siguientes ejecutables:
 
@@ -118,30 +118,30 @@ El proyecto incorpora una suite de pruebas automáticas basada en **GoogleTest**
 
 Una vez compilado el proyecto, desde el directorio `build` pueden ejecutarse todas las pruebas registradas:
 
-```bash
+bash
 ctest
-```
+
 
 También es posible utilizar el objetivo generado por CMake:
 
-```bash
+bash
 make test
-```
+
 
 ### Ejecutar pruebas individuales
 
 Cada conjunto de pruebas puede ejecutarse de manera independiente:
 
-```bash
+bash
 ./nbody_tests
 ./test_benchmark
-```
+
 
 Si el proyecto fue compilado con soporte CUDA (`ENABLE_CUDA=ON`) también estará disponible:
 
-```bash
+bash
 ./nbody_gpu_tests
-```
+
 
 ### Cobertura de las pruebas
 
@@ -167,7 +167,7 @@ Cuando CUDA está habilitado, las pruebas GPU comparan los resultados obtenidos 
 
 ---
 
-# 5. Repetición de Experimentos
+## 5. Repetición de Experimentos
 
 Los experimentos presentados en el informe pueden reproducirse completamente utilizando el ejecutable principal del proyecto. Durante la ejecución se realizan automáticamente los benchmarks de rendimiento y la generación de los archivos de salida necesarios para el análisis físico del sistema.
 
@@ -194,9 +194,9 @@ La utilización de una semilla fija (`seed = 42`) garantiza la reproducibilidad 
 
 Desde el directorio `build` ejecutar:
 
-```bash
+bash
 ./nbody_app
-```
+
 
 Durante la ejecución el programa realiza automáticamente dos etapas:
 
@@ -215,15 +215,15 @@ Al finalizar se generan los siguientes archivos:
 
 El archivo `snapshots.dat` posee el siguiente formato:
 
-```
+
 Step ID X Y Mass
-```
+
 
 donde cada fila representa una partícula en un instante de tiempo determinado.
 
 Por su parte, `energy_timeseries.dat` almacena para cada muestra:
 
-```
+
 Step
 KineticEnergy
 PotentialEnergy
@@ -235,7 +235,7 @@ MomentumX
 MomentumY
 MomentumMagnitude
 MinDistance
-```
+
 
 Estas magnitudes permiten evaluar la estabilidad numérica de la simulación y verificar la conservación aproximada de las cantidades físicas.
 
@@ -247,10 +247,10 @@ El repositorio incluye el script `plot.py`, encargado de procesar los archivos `
 
 **Importante:** el script debe ejecutarse desde la carpeta `build`, ya que allí se copian automáticamente tanto el script como los archivos de salida durante la compilación.
 
-```bash
+bash
 cd build
 python3 plot.py
-```
+
 
 Se requiere tener instaladas las siguientes bibliotecas:
 
@@ -279,29 +279,29 @@ La compilación GPU se habilita automáticamente cuando existe un CUDA Toolkit i
 
 ### Compilar con CUDA
 
-```bash
+bash
 cmake -B build -DENABLE_CUDA=ON
 cmake --build build --parallel
-```
+
 
 ### Ejecutar las pruebas GPU
 
-```bash
+bash
 ./build/nbody_gpu_tests
-```
+
 
 ### Compilar únicamente la versión CPU
 
-```bash
+bash
 cmake -B build -DENABLE_CUDA=OFF
 cmake --build build
-```
+
 
 En el clúster DIINF puede especificarse manualmente la arquitectura CUDA:
 
-```bash
+bash
 cmake -B build -DENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75
-```
+
 
 ---
 
@@ -337,9 +337,9 @@ Esta organización favorece accesos coalescentes a memoria global y mejora el re
 
 Se adopta una constante gravitacional normalizada:
 
-```
+
 G = 1
-```
+
 
 Esta decisión posee dos ventajas principales:
 
@@ -352,9 +352,9 @@ Esta decisión posee dos ventajas principales:
 
 El parámetro
 
-```
+
 ε = 0.1
-```
+
 
 se incorpora al denominador de la ley gravitacional para evitar singularidades cuando dos partículas se encuentran extremadamente próximas.
 
@@ -366,9 +366,9 @@ Su utilización mejora la estabilidad numérica de la simulación y evita aceler
 
 Las comparaciones entre implementaciones CPU y GPU utilizan el criterio
 
-```
+
 |GPU − CPU| ≤ atol + rtol · |CPU|
-```
+
 
 con:
 
@@ -423,15 +423,13 @@ Este esquema reduce significativamente el volumen de datos transferidos respecto
 
 ### Cálculo de aceleraciones en GPU
 
-El cálculo de aceleraciones mantiene el algoritmo directo del problema N-Body, cuya complejidad computacional es \(O(N^2)\).
+El cálculo de aceleraciones mantiene el algoritmo directo del problema N-Body, cuya complejidad computacional es $O(N^2)$.
 
 Cada hilo CUDA es responsable de calcular la aceleración correspondiente a una única partícula.
 
 El índice global del hilo se obtiene mediante
 
-\[
-i = blockIdx.x \times blockDim.x + threadIdx.x
-\]
+$$i = \text{blockIdx.x} \times \text{blockDim.x} + \text{threadIdx.x}$$
 
 y determina la partícula sobre la cual trabajará dicho hilo.
 
@@ -439,9 +437,7 @@ Posteriormente, cada hilo recorre secuencialmente todas las partículas del sist
 
 La configuración de lanzamiento utiliza una grilla unidimensional con tamaño
 
-\[
-gridSize = \left\lceil \frac{N}{blockSize} \right\rceil
-\]
+$$gridSize = \left\lceil \frac{N}{blockSize} \right\rceil$$
 
 de modo que exista al menos un hilo disponible para cada cuerpo del sistema.
 
@@ -486,9 +482,7 @@ La memoria compartida almacena tres arreglos:
 
 Cada uno posee un tamaño igual a `blockDim.x`, por lo que la memoria dinámica reservada durante el lanzamiento del kernel corresponde a
 
-\[
-3 \times blockDim \times sizeof(double)
-\]
+$$3 \times blockDim \times sizeof(double)$$
 
 Este enfoque disminuye considerablemente la cantidad de accesos repetidos a memoria global, ya que todas las partículas pertenecientes a un tile son reutilizadas por los hilos del mismo bloque.
 
@@ -498,11 +492,9 @@ Este enfoque disminuye considerablemente la cantidad de accesos repetidos a memo
 
 Para evitar singularidades cuando dos partículas se encuentran muy próximas, ambas implementaciones incorporan el parámetro de suavizado directamente en el cálculo de la distancia:
 
-\[
-r^2 = dx^2 + dy^2 + \varepsilon^2
-\]
+$$r^2 = dx^2 + dy^2 + \varepsilon^2$$
 
-donde \(\varepsilon\) corresponde al parámetro `softening`.
+donde $\varepsilon$ corresponde al parámetro `softening`.
 
 La inclusión de este término evita divisiones por cero y reduce aceleraciones extremadamente grandes que podrían afectar la estabilidad numérica de la simulación.
 
@@ -519,7 +511,7 @@ La primera implementación utiliza una reducción jerárquica en memoria compart
 Cada hilo calcula:
 
 - la energía cinética de una partícula;
-- la energía potencial considerando únicamente pares \(j>i\), evitando contabilizar dos veces la misma interacción.
+- la energía potencial considerando únicamente pares $j > i$, evitando contabilizar dos veces la misma interacción.
 
 Las contribuciones se reducen primero dentro de cada bloque mediante memoria compartida y posteriormente una segunda reducción combina los resultados parciales hasta obtener la energía total del sistema.
 
