@@ -319,4 +319,18 @@ std::pair<double, double> NBodySystem::computeEnergyGpu(
     );
 }
 
+double NBodySystem::computeAccelerationsGpuKernelOnly(int /*variant*/, int /*block_size*/) {
+    throw std::runtime_error(
+        "computeAccelerationsGpuKernelOnly: el binario fue compilado sin soporte CUDA "
+        "(configure con -DENABLE_CUDA=ON y el CUDA Toolkit instalado)"
+    );
+}
+
+double NBodySystem::computeAccelerationsGpuEndToEnd(int /*variant*/, int /*block_size*/) {
+    throw std::runtime_error(
+        "computeAccelerationsGpuEndToEnd: el binario fue compilado sin soporte CUDA "
+        "(configure con -DENABLE_CUDA=ON y el CUDA Toolkit instalado)"
+    );
+}
+
 #endif // NBODY_HAS_CUDA

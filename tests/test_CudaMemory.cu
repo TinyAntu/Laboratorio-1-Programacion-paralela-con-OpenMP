@@ -6,6 +6,7 @@
 //   rtol = 1e-4, atol = 1e-8
 // Criterio: |gpu - cpu| <= atol + rtol * |cpu|
 #include <gtest/gtest.h>
+#include <cuda_runtime.h>
 
 #include "CudaBuffer.h"
 #include "NBodySystem.h"
@@ -35,11 +36,22 @@ void computeCpuReference(NBodySystem& sys, unsigned int seed, int N) {
     sys.computeAccelerations();
 }
 
+// Verifica si existe hardware GPU CUDA disponible en tiempo de ejecución
+bool isCudaDeviceAvailable() {
+    int deviceCount = 0;
+    cudaError_t err = cudaGetDeviceCount(&deviceCount);
+    return (err == cudaSuccess && deviceCount > 0);
+}
+
 } // namespace
 
 // ===== CudaBuffer: RAII y transferencias =====
 
 TEST(CudaBufferTest, RoundTripH2DD2H) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     std::vector<double> host_in(1000);
     std::iota(host_in.begin(), host_in.end(), 0.0); // 0, 1, 2, ...
 
@@ -59,6 +71,10 @@ TEST(CudaBufferTest, RoundTripH2DD2H) {
 }
 
 TEST(CudaBufferTest, MoveTransfiereLaPropiedad) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     CudaBuffer<double> a(64);
     double* raw = a.data();
 
@@ -75,6 +91,10 @@ TEST(CudaBufferTest, MoveTransfiereLaPropiedad) {
 }
 
 TEST(CudaBufferTest, TransferenciasInvalidasLanzan) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     CudaBuffer<double> vacio;
     std::vector<double> datos(4, 1.0);
     EXPECT_THROW(vacio.copyToDevice(datos), std::logic_error);
@@ -90,6 +110,10 @@ TEST(CudaBufferTest, TransferenciasInvalidasLanzan) {
 // Lab 1 es la fuente de verdad; el valor "0.971" del PDF no coincide con la
 // fórmula (1) del propio enunciado con estos parámetros).
 TEST(GpuAccelerationsTest, CasoAnaliticoDosCuerpos) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     const double G = 1.0, eps = 0.1, d = 1.0, m2 = 1.0;
     const double analitico = G * m2 * d / std::pow(d * d + eps * eps, 1.5);
 
@@ -112,6 +136,10 @@ TEST(GpuAccelerationsTest, CasoAnaliticoDosCuerpos) {
 // ===== Equivalencia CPU serial vs GPU (N pequeño, semilla fija) =====
 
 TEST(GpuAccelerationsTest, ConsistenciaCpuVsGpuSeedFija) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     const int N = 32;
     const unsigned int seed = 123;
 
@@ -138,6 +166,10 @@ TEST(GpuAccelerationsTest, ConsistenciaCpuVsGpuSeedFija) {
 // Requisito del enunciado §4.1: la variante shared debe producir el mismo
 // resultado físico que la básica dentro de la tolerancia acordada.
 TEST(GpuAccelerationsTest, BasicaVsSharedCoinciden) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     const int N = 100;
     const unsigned int seed = 99;
 
@@ -161,6 +193,10 @@ TEST(GpuAccelerationsTest, BasicaVsSharedCoinciden) {
 // con N=100 (no múltiplo de ningún block size) los tiles quedan parcialmente
 // llenos y se ejercita la protección de bordes en la carga cooperativa.
 TEST(GpuAccelerationsTest, IndependienteDelBlockSize) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     const int N = 100;
     const unsigned int seed = 7;
 
@@ -187,6 +223,10 @@ TEST(GpuAccelerationsTest, IndependienteDelBlockSize) {
 }
 
 TEST(GpuAccelerationsTest, ParametrosInvalidosLanzan) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     NBodySystem sys(1.0, 0.1);
     sys.loadFromSeed(42, 8);
     EXPECT_THROW(sys.computeAccelerationsGpu(99), std::invalid_argument);
@@ -197,6 +237,10 @@ TEST(GpuAccelerationsTest, ParametrosInvalidosLanzan) {
 // ===== Integración: stepEulerGpu vs integrateEuler serial =====
 
 TEST(GpuIntegrationTest, StepEulerGpuCoincideConSerial) {
+    if (!isCudaDeviceAvailable()) {
+        GTEST_SKIP() << "No CUDA GPU detected. Skipping test.";
+    }
+
     const int N = 16;
     const unsigned int seed = 2026;
     const double G = 1.0, eps = 0.1, dt = 0.01;

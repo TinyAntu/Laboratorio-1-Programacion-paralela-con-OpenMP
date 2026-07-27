@@ -1,6 +1,5 @@
-#test 7
-# Base image for GitHub Actions workflow
-FROM ubuntu:24.04
+# Base image for GPGPU with CUDA
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 

@@ -1,4 +1,4 @@
-// Implementación GPU de NBodySystem (Lab 2) — Rol 2: host/device y memoria.
+    // Implementación GPU de NBodySystem (Lab 2) — Rol 2: host/device y memoria.
 // Este archivo solo se compila cuando CUDA está habilitado, define el estado
 // device (SoA), las transferencias mínimas por paso y conecta los buffers con
 // los kernels del Rol 1 (src/kernels/accelerations.cu).
@@ -10,6 +10,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <chrono>
 
 // Estado GPU opaco declarado en NBodySystem.h: buffers SoA en device.
 struct NBodySystem::GpuState {
@@ -162,4 +163,96 @@ std::pair<double, double> NBodySystem::computeEnergyGpu(
                 "computeEnergyGpu: metodo invalido"
             );
     }
+}
+
+double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_size) {
+    const int n = static_cast<int>(bodies.size());
+    if (n == 0) return 0.0;
+
+    if (block_size <= 0 || block_size > 1024) {
+        throw std::invalid_argument("block_size invalido");
+    }
+
+    if (gpu_state == nullptr) {
+        gpu_state = new GpuState();
+    }
+    DeviceNBodyState& dev = gpu_state->device_state;
+
+    if (dev.ensureCapacity(static_cast<std::size_t>(n))) {
+        dev.uploadMasses(bodies);
+    }
+    dev.uploadPositions(bodies);
+
+    const int grid_size = (n + block_size - 1) / block_size;
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto t0 = std::chrono::steady_clock::now();
+    switch (variant) {
+        case 0:
+            launchAccelerationsBasic(grid_size, block_size, n,
+                                     dev.x(), dev.y(), dev.mass(),
+                                     dev.ax(), dev.ay(),
+                                     softening_eps, G_const);
+            break;
+        case 1:
+            launchAccelerationsShared(grid_size, block_size, n,
+                                      dev.x(), dev.y(), dev.mass(),
+                                      dev.ax(), dev.ay(),
+                                      softening_eps, G_const);
+            break;
+        default:
+            throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto t1 = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> elapsed = t1 - t0;
+    return elapsed.count();
+}
+
+double NBodySystem::computeAccelerationsGpuEndToEnd(int variant, int block_size) {
+    const int n = static_cast<int>(bodies.size());
+    if (n == 0) return 0.0;
+
+    if (block_size <= 0 || block_size > 1024) {
+        throw std::invalid_argument("block_size invalido");
+    }
+
+    if (gpu_state == nullptr) {
+        gpu_state = new GpuState();
+    }
+    DeviceNBodyState& dev = gpu_state->device_state;
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto t0 = std::chrono::steady_clock::now();
+
+    if (dev.ensureCapacity(static_cast<std::size_t>(n))) {
+        dev.uploadMasses(bodies);
+    }
+    dev.uploadPositions(bodies);
+
+    const int grid_size = (n + block_size - 1) / block_size;
+
+    switch (variant) {
+        case 0:
+            launchAccelerationsBasic(grid_size, block_size, n,
+                                     dev.x(), dev.y(), dev.mass(),
+                                     dev.ax(), dev.ay(),
+                                     softening_eps, G_const);
+            break;
+        case 1:
+            launchAccelerationsShared(grid_size, block_size, n,
+                                      dev.x(), dev.y(), dev.mass(),
+                                      dev.ax(), dev.ay(),
+                                      softening_eps, G_const);
+            break;
+        default:
+            throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
+    dev.downloadAccelerations(bodies);
+
+    auto t1 = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed = t1 - t0;
+    return elapsed.count();
 }

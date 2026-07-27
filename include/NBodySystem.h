@@ -53,6 +53,10 @@ public:
     // Control total sobre la variante y el tamaño del bloque CUDA
     void computeAccelerationsGpu(int variant, int block_size);
     
+    // Métodos de cronometraje para benchmarks GPU
+    double computeAccelerationsGpuKernelOnly(int variant, int block_size = 256);
+    double computeAccelerationsGpuEndToEnd(int variant, int block_size = 256);
+    
     const std::vector<Particle>& getBodies() const;         // version const para referenciar sin modificar las partículas
     std::vector<Particle>& getBodies();                     // version no const para modificar las partículas
     
