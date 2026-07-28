@@ -210,49 +210,135 @@ double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_siz
     return elapsed.count();
 }
 
-double NBodySystem::computeAccelerationsGpuEndToEnd(int variant, int block_size) {
+double NBodySystem::computeAccelerationsGpuEndToEnd(
+    int variant,
+    int block_size,
+    int steps,
+    double dt
+) {
     const int n = static_cast<int>(bodies.size());
-    if (n == 0) return 0.0;
+
+    if (n == 0) {
+        return 0.0;
+    }
+
+    if (variant != 0 && variant != 1) {
+        throw std::invalid_argument(
+            "variant invalido (0=basico, 1=shared)"
+        );
+    }
 
     if (block_size <= 0 || block_size > 1024) {
-        throw std::invalid_argument("block_size invalido");
+        throw std::invalid_argument(
+            "block_size invalido"
+        );
+    }
+
+    if (steps < 1) {
+        throw std::invalid_argument(
+            "steps debe ser >= 1"
+        );
+    }
+
+    if (dt <= 0.0) {
+        throw std::invalid_argument(
+            "dt debe ser > 0"
+        );
     }
 
     if (gpu_state == nullptr) {
         gpu_state = new GpuState();
     }
-    DeviceNBodyState& dev = gpu_state->device_state;
 
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto t0 = std::chrono::steady_clock::now();
+    DeviceNBodyState& dev =
+        gpu_state->device_state;
 
+    /*
+     * La reserva y la copia de masas quedan fuera del cronómetro.
+     *
+     * Las masas no cambian durante la simulación y no deben copiarse
+     * nuevamente en cada paso.
+     */
     if (dev.ensureCapacity(static_cast<std::size_t>(n))) {
         dev.uploadMasses(bodies);
     }
-    dev.uploadPositions(bodies);
 
-    const int grid_size = (n + block_size - 1) / block_size;
+    const int grid_size =
+        (n + block_size - 1) / block_size;
 
-    switch (variant) {
-        case 0:
-            launchAccelerationsBasic(grid_size, block_size, n,
-                                     dev.x(), dev.y(), dev.mass(),
-                                     dev.ax(), dev.ay(),
-                                     softening_eps, G_const);
-            break;
-        case 1:
-            launchAccelerationsShared(grid_size, block_size, n,
-                                      dev.x(), dev.y(), dev.mass(),
-                                      dev.ax(), dev.ay(),
-                                      softening_eps, G_const);
-            break;
-        default:
-            throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
-    }
     CUDA_CHECK(cudaDeviceSynchronize());
-    dev.downloadAccelerations(bodies);
 
-    auto t1 = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed = t1 - t0;
-    return elapsed.count();
+    const auto t0 =
+        std::chrono::steady_clock::now();
+
+    for (int step = 0; step < steps; ++step) {
+        /*
+         * End-to-end de un paso:
+         *
+         * 1. H2D de posiciones.
+         * 2. Kernel.
+         * 3. Sincronización.
+         * 4. D2H de aceleraciones.
+         * 5. Kick y drift en host.
+         */
+
+        dev.uploadPositions(bodies);
+
+        switch (variant) {
+            case 0:
+                launchAccelerationsBasic(
+                    grid_size,
+                    block_size,
+                    n,
+                    dev.x(),
+                    dev.y(),
+                    dev.mass(),
+                    dev.ax(),
+                    dev.ay(),
+                    softening_eps,
+                    G_const
+                );
+                break;
+
+            case 1:
+                launchAccelerationsShared(
+                    grid_size,
+                    block_size,
+                    n,
+                    dev.x(),
+                    dev.y(),
+                    dev.mass(),
+                    dev.ax(),
+                    dev.ay(),
+                    softening_eps,
+                    G_const
+                );
+                break;
+        }
+
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        dev.downloadAccelerations(bodies);
+
+        for (auto& body : bodies) {
+            body.kick(dt);
+            body.drift(dt);
+        }
+    }
+
+    const auto t1 =
+        std::chrono::steady_clock::now();
+
+    const std::chrono::duration<double> elapsed =
+        t1 - t0;
+
+    /*
+     * Se devuelve el tiempo promedio de un paso.
+     *
+     * Por ejemplo, si 100 pasos tardaron 0.2 segundos,
+     * se devuelve 0.002 segundos por paso.
+     */
+    return elapsed.count() /
+           static_cast<double>(steps);
 }
+
