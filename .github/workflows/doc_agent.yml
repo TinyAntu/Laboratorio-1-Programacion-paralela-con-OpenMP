@@ -1,13 +1,10 @@
 name: Agente Documentador IA
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    # Se ejecuta todos los lunes a las 00:00 (evaluar si mantener esto o no)
+    # Se ejecuta todos los lunes a las 00:00 
     - cron: '0 0 * * 1'
-  workflow_dispatch:
+  workflow_dispatch: #Tambien se puede ejecutar desde Actions
 
 permissions:
   contents: write
