@@ -66,3 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Cambio de librería de Google AI.
+
+## [1.1.6] - 28-07-2026
+
+### Changed
+
+- Agente de Bugs ahora revisa todo el código.
+- Se cambió el gatillante del agente documentador.

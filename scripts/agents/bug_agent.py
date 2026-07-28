@@ -42,6 +42,22 @@ def analizar_codigo_con_ia(nombre_archivo, contenido_codigo):
         print(f"Error detallado de la IA: {e}")
         return {"encontro_bug": False}
 
+def obtener_archivos(repo, path):
+    """
+    Busca archivos de forma recursiva dentro de una ruta específica en el repositorio.
+    """
+    archivos_encontrados = []
+    try:
+        contenidos = repo.get_contents(path)
+        for contenido in contenidos:
+            if contenido.type == "dir":
+                archivos_encontrados.extend(obtener_archivos(repo, contenido.path))
+            else:
+                archivos_encontrados.append(contenido)
+    except Exception as e:
+        print(f"No se pudo acceder a la ruta '{path}' o está vacía: {e}")
+    return archivos_encontrados
+
 def main():
     token = os.getenv("GITHUB_TOKEN")
     repo_name = os.getenv("GITHUB_REPOSITORY")
@@ -53,23 +69,28 @@ def main():
     auth = Auth.Token(token)
     g = Github(auth=auth)
     repo = g.get_repo(repo_name)
+    carpetas_objetivo = ["include", "src", "test"]
+    todos_los_archivos = []
     
-    try:
-        archivos_cuda = repo.get_contents("src/kernels")
-    except Exception:
-        print("No se encontró la carpeta 'src/kernels/'.")
+    for carpeta in carpetas_objetivo:
+        todos_los_archivos.extend(obtener_archivos(repo, carpeta))
+        
+    if not todos_los_archivos:
+        print("No se encontraron archivos en las carpetas especificadas.")
         return
 
-    for archivo in archivos_cuda:
-        if archivo.name.endswith(".cu") or archivo.name.endswith(".cuh"):
-            print(f"Analizando {archivo.name}...")
+    extensiones_validas = ('.cpp', '.h', '.cu', '.cuh')
+    
+    for archivo in todos_los_archivos:
+        if archivo.name.endswith(extensiones_validas):
+            print(f"Analizando {archivo.path}...")
             contenido = archivo.decoded_content.decode("utf-8")
-            analisis = analizar_codigo_con_ia(archivo.name, contenido)
+            analisis = analizar_codigo_con_ia(archivo.path, contenido)
             
             if not analisis.get("encontro_bug", False):
                 continue
                 
-            print(f"⚠️ Bug detectado en {archivo.name}.")
+            print(f"⚠️ Bug detectado en {archivo.path}.")
             
             if analisis.get("es_mecanico", False):
                 rama_base = repo.get_branch("main")
@@ -78,14 +99,14 @@ def main():
                 
                 repo.update_file(
                     path=archivo.path,
-                    message=f"fix(cuda): corrección mecánica en {archivo.name}",
+                    message=f"fix(cuda): corrección mecánica en {archivo.path}",
                     content=analisis["codigo_corregido"],
                     sha=archivo.sha,
                     branch=nueva_rama
                 )
                 
                 pr = repo.create_pull(
-                    title=f"Fix automático de código en {archivo.name}",
+                    title=f"Fix automático de código en {archivo.path}",
                     body="El agente de bugs detectó un error mecánico (ej. falta CUDA CHECK) y propone este parche.",
                     head=nueva_rama,
                     base="main"
@@ -94,7 +115,7 @@ def main():
                 
             else:
                 issue = repo.create_issue(
-                    title=f"Bug lógico en {archivo.name}",
+                    title=f"Bug lógico en {archivo.path}",
                     body=f"Requiere intervención humana: {analisis['descripcion']}\n\nNo se modificó main directamente.",
                     labels=["bug", "agent"]
                 )
