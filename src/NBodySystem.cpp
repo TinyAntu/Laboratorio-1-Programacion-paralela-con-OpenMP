@@ -326,9 +326,15 @@ double NBodySystem::computeAccelerationsGpuKernelOnly(int /*variant*/, int /*blo
     );
 }
 
-double NBodySystem::computeAccelerationsGpuEndToEnd(int /*variant*/, int /*block_size*/) {
+double NBodySystem::computeAccelerationsGpuEndToEnd(
+    int /*variant*/,
+    int /*block_size*/,
+    int /*steps*/,
+    double /*dt*/
+) {
     throw std::runtime_error(
-        "computeAccelerationsGpuEndToEnd: el binario fue compilado sin soporte CUDA "
+        "computeAccelerationsGpuEndToEnd: el binario fue compilado "
+        "sin soporte CUDA "
         "(configure con -DENABLE_CUDA=ON y el CUDA Toolkit instalado)"
     );
 }

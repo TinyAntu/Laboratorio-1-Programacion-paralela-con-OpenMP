@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 // Constructor del benchmarking, inicializa los parámetros para ejecutar mediciones de rendimiento
 Benchmark::Benchmark(int N, unsigned int seed, double G,
@@ -736,39 +737,147 @@ void Benchmark::runAll(int max_threads_override) {
     std::cout << "[Benchmark] Finalizado.\n";
 }
 
-TimingResult Benchmark::benchmarkKernelOnly(int variant, int block_size) {
+TimingResult Benchmark::benchmarkKernelOnly(
+    int variant,
+    int block_size
+) {
 #ifdef NBODY_HAS_CUDA
     std::vector<double> times;
     times.reserve(repetitions);
+
     for (int r = 0; r < repetitions; ++r) {
         NBodySystem* sys = makeSystem();
-        double t = sys->computeAccelerationsGpuKernelOnly(variant, block_size);
-        times.push_back(t);
+
+        /*
+         * Calentamiento:
+         *
+         * Inicializa el contexto CUDA, reserva buffers y carga el módulo
+         * antes de registrar la medición real.
+         */
+        (void)sys->computeAccelerationsGpuKernelOnly(
+            variant,
+            block_size
+        );
+
+        const double measured_time =
+            sys->computeAccelerationsGpuKernelOnly(
+                variant,
+                block_size
+            );
+
+        times.push_back(measured_time);
+
         delete sys;
     }
+
     return computeStats(times);
 #else
-    (void)variant; (void)block_size;
-    throw std::runtime_error("benchmarkKernelOnly: Compilado sin soporte CUDA");
+    (void)variant;
+    (void)block_size;
+
+    throw std::runtime_error(
+        "benchmarkKernelOnly: Compilado sin soporte CUDA"
+    );
 #endif
 }
 
-TimingResult Benchmark::benchmarkEndToEnd(int variant, int block_size) {
+TimingResult Benchmark::benchmarkEndToEnd(
+    int variant,
+    int block_size,
+    int steps
+) {
 #ifdef NBODY_HAS_CUDA
+    if (steps < 1) {
+        throw std::invalid_argument(
+            "benchmarkEndToEnd: steps debe ser >= 1"
+        );
+    }
+
     std::vector<double> times;
     times.reserve(repetitions);
+
     for (int r = 0; r < repetitions; ++r) {
         NBodySystem* sys = makeSystem();
-        double t = sys->computeAccelerationsGpuEndToEnd(variant, block_size);
-        times.push_back(t);
+
+        /*
+         * Calentamiento sin modificar posiciones ni velocidades del host.
+         * Además deja preparados el contexto y los buffers CUDA.
+         */
+        (void)sys->computeAccelerationsGpuKernelOnly(
+            variant,
+            block_size
+        );
+
+        const double time_per_step =
+            sys->computeAccelerationsGpuEndToEnd(
+                variant,
+                block_size,
+                steps,
+                dt
+            );
+
+        times.push_back(time_per_step);
+
         delete sys;
     }
+
     return computeStats(times);
 #else
-    (void)variant; (void)block_size;
-    throw std::runtime_error("benchmarkEndToEnd: Compilado sin soporte CUDA");
+    (void)variant;
+    (void)block_size;
+    (void)steps;
+
+    throw std::runtime_error(
+        "benchmarkEndToEnd: Compilado sin soporte CUDA"
+    );
 #endif
 }
+
+
+TimingResult Benchmark::benchmarkCpuEndToEnd(
+    int steps
+) {
+    if (steps < 1) {
+        throw std::invalid_argument(
+            "benchmarkCpuEndToEnd: steps debe ser >= 1"
+        );
+    }
+
+    std::vector<double> times;
+    times.reserve(repetitions);
+
+    for (int r = 0; r < repetitions; ++r) {
+        NBodySystem* sys = makeSystem();
+
+        const auto t0 =
+            std::chrono::steady_clock::now();
+
+        for (int step = 0; step < steps; ++step) {
+            sys->computeAccelerations();
+
+            for (auto& body : sys->getBodies()) {
+                body.kick(dt);
+                body.drift(dt);
+            }
+        }
+
+        const auto t1 =
+            std::chrono::steady_clock::now();
+
+        const std::chrono::duration<double> elapsed =
+            t1 - t0;
+
+        times.push_back(
+            elapsed.count() /
+            static_cast<double>(steps)
+        );
+
+        delete sys;
+    }
+
+    return computeStats(times);
+}
+
 
 TimingResult Benchmark::compareCpuGpu(int n_bodies) {
 #ifdef NBODY_HAS_CUDA
@@ -787,8 +896,18 @@ TimingResult Benchmark::compareCpuGpu(int n_bodies) {
         NBodySystem* gpu_sys = new NBodySystem(G_const, softening);
         gpu_sys->loadFromSeed(seed, n_bodies);
 
-        double t = gpu_sys->computeAccelerationsGpuEndToEnd(0, 256);
-        times.push_back(t);
+        const auto gpu_t0 =
+            std::chrono::steady_clock::now();
+
+        gpu_sys->computeAccelerationsGpu(0, 256);
+
+        const auto gpu_t1 =
+            std::chrono::steady_clock::now();
+
+        const std::chrono::duration<double> gpu_elapsed =
+            gpu_t1 - gpu_t0;
+
+        times.push_back(gpu_elapsed.count());
 
         if (r == 0) {
             const auto& gpu_bodies = gpu_sys->getBodies();
@@ -814,65 +933,253 @@ TimingResult Benchmark::compareCpuGpu(int n_bodies) {
 #endif
 }
 
-void Benchmark::runGpuBenchmarks() {
+void Benchmark::runGpuBenchmarks(
+    int steps,
+    const std::string& filename
+) {
 #ifdef NBODY_HAS_CUDA
-    std::cout << "[Benchmark] Ejecutando benchmarks CUDA (Estudio blockDim.x y Speedup)..." << std::endl;
-
-    std::vector<int> N_sizes = {256, 512, 1024, 2000};
-    std::vector<int> block_sizes = {64, 128, 256, 512, 1024};
-    std::vector<int> variants = {0, 1};
-
-    std::ofstream out("blockdim_study.dat");
-    if (!out) {
-        std::cerr << "[Benchmark] Error al crear blockdim_study.dat" << std::endl;
-        return;
+    /*
+     * El enunciado exige al menos 100 pasos para el benchmark del paso.
+     */
+    if (steps < 100) {
+        throw std::invalid_argument(
+            "runGpuBenchmarks: el benchmark final requiere steps >= 100"
+        );
     }
 
-    out << "# N Variant BlockSize KernelOnlyMean KernelOnlyStdDev EndToEndMean EndToEndStdDev CpuMean CpuStdDev\n";
+    std::cout
+        << "[Benchmark] CUDA: matriz N, variante y blockDim.x..."
+        << std::endl;
+
+    const std::vector<int> N_sizes = {
+        256,
+        512,
+        1024,
+        2000
+    };
+
+    const std::vector<int> variants = {
+        0,
+        1
+    };
+
+    const std::vector<int> block_sizes = {
+        64,
+        128,
+        256,
+        512,
+        1024
+    };
+
+    std::ofstream out(filename);
+
+    if (!out.is_open()) {
+        throw std::runtime_error(
+            "No se pudo crear " + filename
+        );
+    }
+
+    out << std::scientific
+        << std::setprecision(10);
+
+    out << "# Benchmarks CUDA Lab 2\n";
+    out << "# variant: 0=basica, 1=shared\n";
+    out << "# Los tiempos end-to-end y CPU-step "
+           "son promedios por paso.\n";
+
+    out << "# N Variant BlockSize Steps Repetitions "
+           "CpuKernelMean_s CpuKernelStdDev_s "
+           "CpuStepMean_s CpuStepStdDev_s "
+           "KernelOnlyMean_s KernelOnlyStdDev_s "
+           "EndToEndMean_s EndToEndStdDev_s "
+           "KernelSpeedup KernelSpeedupErr "
+           "EndToEndSpeedup EndToEndSpeedupErr "
+           "SerialFraction\n";
+
+    int valid_combinations = 0;
+    int skipped_combinations = 0;
 
     for (int n : N_sizes) {
-        std::cout << "  N = " << n << std::endl;
-        
-        // Medimos el CPU serial para este N
-        int old_N = N_bodies;
-        N_bodies = n;
-        TimingResult cpu_res = benchmarkSerial(1);
-        N_bodies = old_N;
-        
-        std::cout << "    CPU Serial: " << cpu_res.mean << "s" << std::endl;
+        std::cout
+            << "  N = " << n
+            << std::endl;
 
-        for (int var : variants) {
-            std::cout << "    Variante = " << (var == 0 ? "Basica" : "Shared") << std::endl;
-            for (int block : block_sizes) {
-                N_bodies = n;
+        /*
+         * Se crea un Benchmark independiente para cada N.
+         * Esto evita modificar temporalmente N_bodies.
+         */
+        Benchmark current(
+            n,
+            seed,
+            G_const,
+            softening,
+            dt,
+            repetitions
+        );
 
-                TimingResult k_only = benchmarkKernelOnly(var, block);
-                TimingResult e2e = benchmarkEndToEnd(var, block);
+        /*
+         * Referencias CPU:
+         *
+         * cpu_kernel: solamente aceleraciones.
+         * cpu_step: aceleraciones + Euler.
+         */
+        const TimingResult cpu_kernel =
+            current.benchmarkSerial(1);
 
-                N_bodies = old_N;
+        const TimingResult cpu_step =
+            current.benchmarkCpuEndToEnd(steps);
 
-                out << n << " " << var << " " << block << " "
-                    << k_only.mean << " " << k_only.stddev << " "
-                    << e2e.mean << " " << e2e.stddev << " "
-                    << cpu_res.mean << " " << cpu_res.stddev << "\n";
+        for (int variant : variants) {
+            for (int block_size : block_sizes) {
+                try {
+                    const TimingResult kernel =
+                        current.benchmarkKernelOnly(
+                            variant,
+                            block_size
+                        );
 
-                std::cout << "      blockDim.x = " << block
-                          << " | KernelOnly: " << std::scientific << k_only.mean << "s"
-                          << " | EndToEnd: " << e2e.mean << "s" << std::defaultfloat << std::endl;
+                    const TimingResult end_to_end =
+                        current.benchmarkEndToEnd(
+                            variant,
+                            block_size,
+                            steps
+                        );
+
+                    const double kernel_speedup =
+                        cpu_kernel.mean /
+                        kernel.mean;
+
+                    const double kernel_speedup_error =
+                        current.speedupError(
+                            cpu_kernel.mean,
+                            cpu_kernel.stddev,
+                            kernel.mean,
+                            kernel.stddev
+                        );
+
+                    const double end_to_end_speedup =
+                        cpu_step.mean /
+                        end_to_end.mean;
+
+                    const double end_to_end_speedup_error =
+                        current.speedupError(
+                            cpu_step.mean,
+                            cpu_step.stddev,
+                            end_to_end.mean,
+                            end_to_end.stddev
+                        );
+
+                    /*
+                     * Fracción no correspondiente al kernel:
+                     *
+                     * transferencias + sincronización + Euler host.
+                     *
+                     * Es una estimación de la fracción serial del paso.
+                     */
+                    double serial_fraction =
+                        (
+                            end_to_end.mean -
+                            kernel.mean
+                        ) /
+                        end_to_end.mean;
+
+                    serial_fraction =
+                        std::max(
+                            0.0,
+                            std::min(
+                                1.0,
+                                serial_fraction
+                            )
+                        );
+
+                    out
+                        << n << ' '
+                        << variant << ' '
+                        << block_size << ' '
+                        << steps << ' '
+                        << repetitions << ' '
+
+                        << cpu_kernel.mean << ' '
+                        << cpu_kernel.stddev << ' '
+
+                        << cpu_step.mean << ' '
+                        << cpu_step.stddev << ' '
+
+                        << kernel.mean << ' '
+                        << kernel.stddev << ' '
+
+                        << end_to_end.mean << ' '
+                        << end_to_end.stddev << ' '
+
+                        << kernel_speedup << ' '
+                        << kernel_speedup_error << ' '
+
+                        << end_to_end_speedup << ' '
+                        << end_to_end_speedup_error << ' '
+
+                        << serial_fraction
+                        << '\n';
+
+                    ++valid_combinations;
+
+                    std::cout
+                        << "    variant=" << variant
+                        << " block=" << block_size
+                        << " kernel=" << kernel.mean << " s"
+                        << " e2e/step=" << end_to_end.mean << " s"
+                        << std::endl;
+
+                } catch (const std::exception& error) {
+                    /*
+                     * El enunciado permite omitir tamaños que la GPU
+                     * rechace, siempre que quede documentado.
+                     */
+                    ++skipped_combinations;
+
+                    out
+                        << "# SKIPPED"
+                        << " N=" << n
+                        << " variant=" << variant
+                        << " block=" << block_size
+                        << " reason=" << error.what()
+                        << '\n';
+
+                    std::cerr
+                        << "[Benchmark] Se omite"
+                        << " N=" << n
+                        << " variant=" << variant
+                        << " block=" << block_size
+                        << ": " << error.what()
+                        << std::endl;
+                }
             }
         }
     }
-    out.close();
-    std::cout << "[Benchmark] blockdim_study.dat generado con exito." << std::endl;
 
-    std::cout << "[Benchmark] Ejecutando comparacion CPU vs GPU..." << std::endl;
-    try {
-        TimingResult gpu_time = compareCpuGpu(1000);
-        std::cout << "[Benchmark] CPU vs GPU comparacion exitosa. Tiempo GPU: " << gpu_time.mean << " s" << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "[Benchmark] Error en comparacion CPU vs GPU: " << e.what() << std::endl;
-    }
+    out.close();
+
+    std::cout
+        << "[Benchmark] " << filename
+        << " generado."
+        << std::endl;
+
+    std::cout
+        << "[Benchmark] combinaciones validas: "
+        << valid_combinations
+        << std::endl;
+
+    std::cout
+        << "[Benchmark] combinaciones omitidas: "
+        << skipped_combinations
+        << std::endl;
+
 #else
-    std::cout << "[Benchmark] CUDA deshabilitado. Omitiendo benchmarks GPU." << std::endl;
+    (void)steps;
+    (void)filename;
+
+    std::cout
+        << "[Benchmark] CUDA deshabilitado. "
+           "Omitiendo benchmarks GPU."
+        << std::endl;
 #endif
 }

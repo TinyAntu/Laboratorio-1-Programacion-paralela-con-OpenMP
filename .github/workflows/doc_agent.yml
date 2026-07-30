@@ -2,7 +2,7 @@ name: Agente Documentador IA
 
 on:
   schedule:
-    # Se ejecuta todos los lunes a las 00:00 
+    # Se ejecuta todos los lunes a las 23:20
     - cron: '0 0 * * 1'
   workflow_dispatch: #Tambien se puede ejecutar desde Actions
 

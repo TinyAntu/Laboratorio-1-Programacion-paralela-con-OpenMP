@@ -3,9 +3,10 @@
 
 #include <iostream>
 #include <omp.h>
+#include <string>
 
 
-int main() {
+int main(int argc, char* argv[]) {
     int N = 1000;
     unsigned int seed = 42;
     double G = 1.0;
@@ -15,6 +16,37 @@ int main() {
 
     int steps = 500;
     int sample_every = 10;
+    const bool cuda_benchmarks_only =
+        argc > 1 &&
+        std::string(argv[1]) == "--cuda-benchmarks-only";
+
+    #ifdef NBODY_HAS_CUDA
+    if (cuda_benchmarks_only) {
+        Benchmark cuda_benchmark(
+            N,
+            seed,
+            G,
+            softening,
+            dt,
+            repetitions
+        );
+
+        cuda_benchmark.runGpuBenchmarks(
+            100,
+            "blockdim_study.dat"
+        );
+
+        return 0;
+    }
+    #else
+    if (cuda_benchmarks_only) {
+        std::cerr
+            << "Este binario fue compilado sin soporte CUDA."
+            << std::endl;
+
+        return 1;
+    }
+    #endif
 
     std::cout << "=== INICIANDO BENCHMARKS N-BODY ===" << std::endl;
     std::cout << "Parámetros:" << std::endl;
@@ -44,6 +76,9 @@ int main() {
     std::cout << "  - scaling_analysis.dat" << std::endl;
     std::cout << "  - snapshots.dat" << std::endl;
     std::cout << "  - energy_timeseries.dat" << std::endl;
+    #ifdef NBODY_HAS_CUDA
+    std::cout << "  - blockdim_study.dat" << std::endl;
+    #endif
 
     return 0;
 }
