@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test
+#SBATCH --job-name=nbody-cuda-bench
 #SBATCH --partition=GPU
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -9,52 +9,60 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 
-set -e
+set -euo pipefail
 
-echo "Ejecutando Programa de Prueba en Slurm"
+ROOT_DIR="$PWD"
+RESULTS_DIR="$ROOT_DIR/results"
 
-echo "Nodo donde se ejecuta:"
+mkdir -p "$RESULTS_DIR"
+
+# Toda la salida también se guarda como evidencia reproducible.
+exec > >(tee "$RESULTS_DIR/cluster_run.log") 2>&1
+
+echo "===== INFORMACION DE LA CORRIDA ====="
+date
 hostname
-
-echo "Directorio actual:"
 pwd
 
-echo "Fecha inicio:"
-date
+echo
+echo "===== GPU Y CUDA ====="
+nvidia-smi
+nvcc --version
 
-echo "Partición usada:"
-echo "$SLURM_JOB_PARTITION"
+echo
+echo "===== COMPILADORES ====="
+cmake --version
+c++ --version
 
-echo "CPUs asignadas por Slurm:"
-echo "$SLURM_CPUS_PER_TASK"
+echo
+echo "===== CONFIGURACION Y COMPILACION ====="
 
-echo "Configurando y compilando con CMake..."
+rm -rf build
 
-mkdir -p build
+cmake -S . -B build \
+  -DENABLE_CUDA=ON \
+  -DBUILD_TESTING=OFF
+
+cmake --build build \
+  --parallel "${SLURM_CPUS_PER_TASK:-24}"
+
+echo
+echo "===== BENCHMARKS CUDA ====="
+
 cd build
 
-cmake .. -DBUILD_TESTING=OFF
-cmake --build . -j "${SLURM_CPUS_PER_TASK:-24}"
+srun -c "${SLURM_CPUS_PER_TASK:-24}" \
+  ./nbody_app --cuda-benchmarks-only
 
-echo "Ejecutando programa principal..."
+cp blockdim_study.dat \
+   "$RESULTS_DIR/blockdim_study.dat"
 
-THREADS=${SLURM_CPUS_PER_TASK:-24}
+echo
+echo "===== ARCHIVOS GENERADOS ====="
 
-export OMP_NUM_THREADS=$THREADS
-export OMP_PROC_BIND=spread
-export OMP_PLACES=cores
-export OMP_DYNAMIC=false
+ls -lh "$RESULTS_DIR"
 
-echo "THREADS=$THREADS"
-echo "OMP_NUM_THREADS=$OMP_NUM_THREADS"
-echo "OMP_PROC_BIND=$OMP_PROC_BIND"
-echo "OMP_PLACES=$OMP_PLACES"
-echo "OMP_DYNAMIC=$OMP_DYNAMIC"
+echo
+echo "===== FIN ====="
 
-srun -c "$THREADS" ./nbody_app
-
-echo "Archivos generados en build:"
-ls -lh
-
-echo "Fecha término:"
 date

@@ -120,9 +120,24 @@ public:
 
     //METODOS CUDA LAB2
     TimingResult benchmarkKernelOnly(int variant = 0, int block_size = 256); //tiempo del kernel (sync incluida en la medici ́on host)
-    TimingResult benchmarkEndToEnd(int variant = 0, int block_size = 256); //incluye transferencias del paso
-    TimingResult compareCpuGpu(int n_bodies);
-    void runGpuBenchmarks();
+    TimingResult benchmarkEndToEnd(
+        int variant = 0,
+        int block_size = 256,
+        int steps = 100
+    );
+
+    TimingResult benchmarkCpuEndToEnd(
+        int steps = 100
+    );
+
+    TimingResult compareCpuGpu(
+        int n_bodies
+    );
+
+    void runGpuBenchmarks(
+        int steps = 100,
+        const std::string& filename = "blockdim_study.dat"
+    );
 
     std::vector<ScalingResult> runScalingAnalysis(
             const std::vector<int>& num_threads_list);

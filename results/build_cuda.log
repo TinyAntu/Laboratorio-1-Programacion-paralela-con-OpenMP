@@ -1,0 +1,18 @@
+Consolidate compiler generated dependencies of target gtest
+Consolidate compiler generated dependencies of target nbody_core
+[  6%] Built target gtest
+[ 39%] Built target nbody_core
+Consolidate compiler generated dependencies of target gmock
+Consolidate compiler generated dependencies of target gtest_main
+Consolidate compiler generated dependencies of target nbody_app
+[ 45%] Built target gmock
+[ 51%] Built target nbody_app
+[ 57%] Built target gtest_main
+Consolidate compiler generated dependencies of target gmock_main
+Consolidate compiler generated dependencies of target test_benchmark
+Consolidate compiler generated dependencies of target nbody_tests
+[ 63%] Built target gmock_main
+Consolidate compiler generated dependencies of target nbody_gpu_tests
+[ 69%] Built target test_benchmark
+[100%] Built target nbody_gpu_tests
+[100%] Built target nbody_tests

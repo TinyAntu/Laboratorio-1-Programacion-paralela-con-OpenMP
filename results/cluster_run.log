@@ -1,0 +1,84 @@
+=== INICIANDO BENCHMARKS N-BODY ===
+Parámetros:
+  N (partículas): 1000
+  Repeticiones: 10
+  Seed: 42
+OpenMP:
+  omp_get_max_threads(): 2
+  omp_get_num_procs(): 2
+
+[Benchmark] N=1000  rep=10
+[Benchmark] 1. Schedules...
+[Benchmark] 2. Sincronizacion...
+[Benchmark] 3. Clausulas de datos...
+[Benchmark] 4. Sincronizacion avanzada...
+[Benchmark] 5. Escalabilidad...
+[Benchmark] f (Amdahl) = 0.38987 (threads 1..2)
+[Benchmark] 6. Fraccion serial (instrumentacion explicita)...
+  p=1  f_measured=0.000457676  f_amdahl=0.38987  overhead=0.0393426 s
+  p=2  f_measured=0.000457955  f_amdahl=0.38987  overhead=0.0380898 s
+[Benchmark] benchmark_results guardados en benchmark_results.dat
+[Benchmark] scaling_analysis guardado en scaling_analysis.dat
+[Benchmark] Finalizado.
+[Benchmark] CUDA: matriz N, variante y blockDim.x...
+  N = 256
+    variant=0 block=64 kernel=0.000102645 s e2e/step=0.000135304 s
+    variant=0 block=128 kernel=0.000101553 s e2e/step=0.000124983 s
+    variant=0 block=256 kernel=6.82396e-05 s e2e/step=9.7402e-05 s
+    variant=0 block=512 kernel=6.82888e-05 s e2e/step=9.74115e-05 s
+    variant=0 block=1024 kernel=6.83098e-05 s e2e/step=9.73833e-05 s
+    variant=1 block=64 kernel=6.05664e-05 s e2e/step=8.94158e-05 s
+    variant=1 block=128 kernel=5.99223e-05 s e2e/step=8.88463e-05 s
+    variant=1 block=256 kernel=6.62797e-05 s e2e/step=9.55573e-05 s
+    variant=1 block=512 kernel=7.5461e-05 s e2e/step=0.000104769 s
+    variant=1 block=1024 kernel=9.41337e-05 s e2e/step=0.000124434 s
+  N = 512
+    variant=0 block=64 kernel=0.000196114 s e2e/step=0.000219136 s
+    variant=0 block=128 kernel=0.000124356 s e2e/step=0.000162446 s
+    variant=0 block=256 kernel=0.000135324 s e2e/step=0.00017388 s
+    variant=0 block=512 kernel=0.000170176 s e2e/step=0.000208279 s
+    variant=0 block=1024 kernel=0.000170007 s e2e/step=0.000208098 s
+    variant=1 block=64 kernel=0.000114196 s e2e/step=0.000152542 s
+    variant=1 block=128 kernel=0.000112818 s e2e/step=0.000150935 s
+    variant=1 block=256 kernel=0.000127623 s e2e/step=0.000165544 s
+    variant=1 block=512 kernel=0.000168251 s e2e/step=0.000206402 s
+    variant=1 block=1024 kernel=0.000187762 s e2e/step=0.000225933 s
+  N = 1024
+    variant=0 block=64 kernel=0.000380747 s e2e/step=0.00038112 s
+    variant=0 block=128 kernel=0.000245672 s e2e/step=0.000298718 s
+    variant=0 block=256 kernel=0.000262494 s e2e/step=0.000315585 s
+    variant=0 block=512 kernel=0.000343242 s e2e/step=0.000396289 s
+    variant=0 block=1024 kernel=0.000616634 s e2e/step=0.000669876 s
+    variant=1 block=64 kernel=0.000219904 s e2e/step=0.000272683 s
+    variant=1 block=128 kernel=0.000217301 s e2e/step=0.000270018 s
+    variant=1 block=256 kernel=0.000246711 s e2e/step=0.000299917 s
+    variant=1 block=512 kernel=0.000329084 s e2e/step=0.000381787 s
+    variant=1 block=1024 kernel=0.000618124 s e2e/step=0.00067136 s
+  N = 2000
+    variant=0 block=64 kernel=0.000726733 s e2e/step=0.000596229 s
+    variant=0 block=128 kernel=0.000477042 s e2e/step=0.000559079 s
+    variant=0 block=256 kernel=0.000516857 s e2e/step=0.000598943 s
+    variant=0 block=512 kernel=0.000663857 s e2e/step=0.00074621 s
+    variant=0 block=1024 kernel=0.00118453 s e2e/step=0.00126666 s
+    variant=1 block=64 kernel=0.00042315 s e2e/step=0.000505019 s
+    variant=1 block=128 kernel=0.0004184 s e2e/step=0.000500165 s
+    variant=1 block=256 kernel=0.000476001 s e2e/step=0.000558523 s
+    variant=1 block=512 kernel=0.000636788 s e2e/step=0.000718636 s
+    variant=1 block=1024 kernel=0.00120281 s e2e/step=0.00128505 s
+[Benchmark] blockdim_study.dat generado.
+[Benchmark] combinaciones validas: 40
+[Benchmark] combinaciones omitidas: 0
+[Visualizer] Generando salidas físicas...
+[Visualizer] N=1000  steps=500  sample_every=10
+[Visualizer] Archivos generados:
+  - snapshots.dat
+  - energy_timeseries.dat
+[Visualizer] Finalizado.
+
+=== EJECUCIÓN COMPLETADA ===
+Archivos generados:
+  - benchmark_results.dat
+  - scaling_analysis.dat
+  - snapshots.dat
+  - energy_timeseries.dat
+  - blockdim_study.dat

@@ -1,0 +1,4 @@
+-- CUDA habilitado (CMAKE_CUDA_ARCHITECTURES=75)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/ceph/dmolina/LAB2/build_gpu
