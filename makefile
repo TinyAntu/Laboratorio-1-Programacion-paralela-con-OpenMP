@@ -1,16 +1,27 @@
-NVCC = nvcc
-CXX = g++
-NVCCFLAGS = -O3 -std=c++17 -Xcompiler -Wall,-Wextra
-CXXFLAGS = -Wall -Wextra -O3 -std=c++17
-LDFLAGS = -lcudart
-TARGET = nbody_2d_cuda
-CPP_SOURCES = main.cpp Particle.cpp NBodySystem.cpp ...
-CU_SOURCES = kernels/accelerations.cu kernels/metrics.cu
+BUILD_DIR ?= build
+CUDA_ARCH ?= 80
 
-$(TARGET): $(CPP_SOURCES) $(CU_SOURCES)
-	$(NVCC) $(NVCCFLAGS) -o $(TARGET) $(CPP_SOURCES) $(CU_SOURCES) $(LDFLAGS)
+CMAKE_FLAGS := \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DBUILD_TESTING=ON \
+	-DENABLE_CUDA=ON \
+	-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCH)
 
-test:
-	./run_tests
+.PHONY: all configure build test benchmark clean
 
-.PHONY: clean benchmark test
+all: build
+
+configure:
+	cmake -S . -B $(BUILD_DIR) $(CMAKE_FLAGS)
+
+build: configure
+	cmake --build $(BUILD_DIR) --parallel
+
+test: build
+	ctest --test-dir $(BUILD_DIR) --output-on-failure
+
+benchmark: build
+	./$(BUILD_DIR)/nbody_app
+
+clean:
+	rm -rf $(BUILD_DIR)
