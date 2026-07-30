@@ -2,7 +2,7 @@ name: Agente Revisor de Bugs IA
 
 on:
   schedule:
-    # Se ejecuta todos los días a las 05:00  
+    # Se ejecuta todos los días a las 03:30  
     - cron: '0 5 * * *'
   workflow_dispatch: 
 

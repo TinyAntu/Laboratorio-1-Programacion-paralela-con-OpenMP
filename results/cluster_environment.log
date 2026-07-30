@@ -1,0 +1,24 @@
+=== FECHA ===
+mar 28 jul 2026 03:38:16 -04
+=== NODO ===
+xigpu01
+=== GPU ASIGNADA POR SLURM ===
+0
+=== CUDA ===
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2023 NVIDIA Corporation
+Built on Mon_Apr__3_17:16:06_PDT_2023
+Cuda compilation tools, release 12.1, V12.1.105
+Build cuda_12.1.r12.1/compiler.32688072_0
+=== COMPILADORES ===
+g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+cmake version 3.22.1
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+=== NVML ===
+Failed to initialize NVML: Driver/library version mismatch
+NVML library version: 580.173
