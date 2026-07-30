@@ -1,0 +1,378 @@
+===== INFORMACION DE LA CORRIDA =====
+jue 30 jul 2026 05:49:08 -04
+xigpu01
+/home/ceph/dmolina/lab2v3
+SLURM_JOB_ID=1309619
+SLURM_JOB_PARTITION=GPU
+SLURM_CPUS_PER_TASK=24
+SLURM_JOB_GPUS=0
+CUDA_VISIBLE_DEVICES=0
+
+===== GPU Y CUDA =====
+GPU 0: NVIDIA A30 (UUID: GPU-3404b858-1ee2-2e76-98be-a539d0b89ebd)
+Thu Jul 30 05:49:08 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.173.02             Driver Version: 580.173.02     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A30                     On  |   00000000:81:00.0 Off |                    0 |
+| N/A   29C    P0             31W /  165W |       0MiB /  24576MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2023 NVIDIA Corporation
+Built on Mon_Apr__3_17:16:06_PDT_2023
+Cuda compilation tools, release 12.1, V12.1.105
+Build cuda_12.1.r12.1/compiler.32688072_0
+
+===== COMPILADORES =====
+cmake version 3.22.1
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+Copyright (C) 2021 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
+===== CONFIGURACION Y COMPILACION =====
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found OpenMP_CXX: -fopenmp (found version "4.5") 
+-- Found OpenMP: TRUE (found version "4.5")  
+-- Looking for a CUDA compiler
+-- Looking for a CUDA compiler - /usr/local/cuda/bin/nvcc
+-- The CUDA compiler identification is NVIDIA 12.1.105
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- CUDA habilitado (CMAKE_CUDA_ARCHITECTURES=80)
+-- The C compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Found Python3: /usr/bin/python3.10 (found version "3.10.12") found components: Interpreter 
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/ceph/dmolina/lab2v3/build_gpu
+[  3%] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/Benchmark.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/Integrator.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/MetricsCalculator.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/Particle.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/NBodySimulator.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/NBodySystem.cpp.o
+[ 33%] Building CXX object CMakeFiles/nbody_core.dir/src/Visualizer.cpp.o
+[ 33%] Building CUDA object CMakeFiles/nbody_core.dir/src/NBodySystemGpu.cu.o
+[ 33%] Building CUDA object CMakeFiles/nbody_core.dir/src/kernels/metrics.cu.o
+[ 33%] Building CUDA object CMakeFiles/nbody_core.dir/src/kernels/accelerations.cu.o
+[ 36%] Linking CXX static library libnbody_core.a
+[ 36%] Built target nbody_core
+[ 39%] Building CXX object CMakeFiles/nbody_app.dir/src/main.cpp.o
+[ 42%] Linking CXX executable nbody_app
+[ 42%] Built target nbody_app
+[ 45%] Linking CXX static library ../../../lib/libgtest.a
+[ 45%] Built target gtest
+[ 48%] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.o
+[ 51%] Building CXX object _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+[ 54%] Linking CXX static library ../../../lib/libgtest_main.a
+[ 54%] Built target gtest_main
+[ 57%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_main.cpp.o
+[ 78%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_NbodySimulator.cpp.o
+[ 78%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_NBodySystem.cpp.o
+[ 78%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_Particle.cpp.o
+[ 78%] Building CUDA object CMakeFiles/nbody_gpu_tests.dir/tests/test_CudaMemory.cu.o
+[ 78%] Building CXX object CMakeFiles/test_benchmark.dir/tests/test_Benchmark.cpp.o
+[ 78%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_integrator.cpp.o
+[ 78%] Building CXX object CMakeFiles/nbody_tests.dir/tests/test_metrics.cpp.o
+[ 81%] Linking CXX executable test_benchmark
+[ 81%] Built target test_benchmark
+[ 84%] Linking CXX static library ../../../lib/libgmock.a
+[ 84%] Built target gmock
+[ 87%] Building CXX object _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.o
+[ 90%] Linking CXX executable nbody_tests
+[ 90%] Built target nbody_tests
+[ 93%] Linking CXX static library ../../../lib/libgmock_main.a
+[ 93%] Built target gmock_main
+[ 96%] Linking CUDA device code CMakeFiles/nbody_gpu_tests.dir/cmake_device_link.o
+[100%] Linking CXX executable nbody_gpu_tests
+[100%] Built target nbody_gpu_tests
+
+===== TESTS CUDA =====
+Running main() from /home/ceph/dmolina/lab2v3/build_gpu/_deps/googletest-src/googletest/src/gtest_main.cc
+[==========] Running 12 tests from 4 test suites.
+[----------] Global test environment set-up.
+[----------] 3 tests from CudaBufferTest
+[ RUN      ] CudaBufferTest.RoundTripH2DD2H
+[       OK ] CudaBufferTest.RoundTripH2DD2H (238 ms)
+[ RUN      ] CudaBufferTest.MoveTransfiereLaPropiedad
+[       OK ] CudaBufferTest.MoveTransfiereLaPropiedad (0 ms)
+[ RUN      ] CudaBufferTest.TransferenciasInvalidasLanzan
+[       OK ] CudaBufferTest.TransferenciasInvalidasLanzan (0 ms)
+[----------] 3 tests from CudaBufferTest (238 ms total)
+
+[----------] 5 tests from GpuAccelerationsTest
+[ RUN      ] GpuAccelerationsTest.CasoAnaliticoDosCuerpos
+[       OK ] GpuAccelerationsTest.CasoAnaliticoDosCuerpos (0 ms)
+[ RUN      ] GpuAccelerationsTest.ConsistenciaCpuVsGpuSeedFija
+[       OK ] GpuAccelerationsTest.ConsistenciaCpuVsGpuSeedFija (0 ms)
+[ RUN      ] GpuAccelerationsTest.BasicaVsSharedCoinciden
+[       OK ] GpuAccelerationsTest.BasicaVsSharedCoinciden (0 ms)
+[ RUN      ] GpuAccelerationsTest.IndependienteDelBlockSize
+[       OK ] GpuAccelerationsTest.IndependienteDelBlockSize (3 ms)
+[ RUN      ] GpuAccelerationsTest.ParametrosInvalidosLanzan
+[       OK ] GpuAccelerationsTest.ParametrosInvalidosLanzan (0 ms)
+[----------] 5 tests from GpuAccelerationsTest (5 ms total)
+
+[----------] 1 test from GpuIntegrationTest
+[ RUN      ] GpuIntegrationTest.StepEulerGpuCoincideConSerial
+[       OK ] GpuIntegrationTest.StepEulerGpuCoincideConSerial (1 ms)
+[----------] 1 test from GpuIntegrationTest (1 ms total)
+
+[----------] 3 tests from GpuEnergyTest
+[ RUN      ] GpuEnergyTest.ReduccionYAtomicCoincidenConCpu
+[       OK ] GpuEnergyTest.ReduccionYAtomicCoincidenConCpu (0 ms)
+[ RUN      ] GpuEnergyTest.MetodoInvalidoLanzaExcepcion
+[       OK ] GpuEnergyTest.MetodoInvalidoLanzaExcepcion (0 ms)
+[ RUN      ] GpuEnergyTest.UnCuerpoTienePotencialCero
+[       OK ] GpuEnergyTest.UnCuerpoTienePotencialCero (0 ms)
+[----------] 3 tests from GpuEnergyTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 12 tests from 4 test suites ran. (246 ms total)
+[  PASSED  ] 12 tests.
+
+===== SUITE COMPLETA =====
+Internal ctest changing into directory: /home/ceph/dmolina/lab2v3/build_gpu
+Test project /home/ceph/dmolina/lab2v3/build_gpu
+      Start  1: NBodySimulatorIntegrationTest.ConsistencyOfAllEulerVariants
+ 1/37 Test  #1: NBodySimulatorIntegrationTest.ConsistencyOfAllEulerVariants ...   Passed    0.00 sec
+      Start  2: NBodySimulatorIntegrationTest.ConsistencyOfSyncVariants
+ 2/37 Test  #2: NBodySimulatorIntegrationTest.ConsistencyOfSyncVariants .......   Passed    0.00 sec
+      Start  3: NBodySimulatorIntegrationTest.LinearMomentumConservation
+ 3/37 Test  #3: NBodySimulatorIntegrationTest.LinearMomentumConservation ......   Passed    0.00 sec
+      Start  4: NBodySimulatorIntegrationTest.AdvancedOpenMPPhases
+ 4/37 Test  #4: NBodySimulatorIntegrationTest.AdvancedOpenMPPhases ............   Passed    0.00 sec
+      Start  5: NBodySimulatorIntegrationTest.AdvancedOpenMPClausulas
+ 5/37 Test  #5: NBodySimulatorIntegrationTest.AdvancedOpenMPClausulas .........   Passed    0.00 sec
+      Start  6: NBodyPhysicsTest.AnalyticalTwoBody
+ 6/37 Test  #6: NBodyPhysicsTest.AnalyticalTwoBody ............................   Passed    0.00 sec
+      Start  7: NBodyPhysicsTest.ActionReaction
+ 7/37 Test  #7: NBodyPhysicsTest.ActionReaction ...............................   Passed    0.00 sec
+      Start  8: NBodyPhysicsTest.ZeroAccelerations
+ 8/37 Test  #8: NBodyPhysicsTest.ZeroAccelerations ............................   Passed    0.00 sec
+      Start  9: NBodyPhysicsTest.AnalyticalThreeBody
+ 9/37 Test  #9: NBodyPhysicsTest.AnalyticalThreeBody ..........................   Passed    0.00 sec
+      Start 10: NBodyPhysicsTest.RegressionMassSensitivity
+10/37 Test #10: NBodyPhysicsTest.RegressionMassSensitivity ....................   Passed    0.00 sec
+      Start 11: NBodyIntegrationTest.ConsistencySerialVsParallel
+11/37 Test #11: NBodyIntegrationTest.ConsistencySerialVsParallel ..............   Passed    0.00 sec
+      Start 12: ParticleTest.Constructor
+12/37 Test #12: ParticleTest.Constructor ......................................   Passed    0.00 sec
+      Start 13: ParticleTest.AccelerationMethods
+13/37 Test #13: ParticleTest.AccelerationMethods ..............................   Passed    0.00 sec
+      Start 14: ParticleTest.KickMethod
+14/37 Test #14: ParticleTest.KickMethod .......................................   Passed    0.00 sec
+      Start 15: ParticleTest.DriftMethod
+15/37 Test #15: ParticleTest.DriftMethod ......................................   Passed    0.00 sec
+      Start 16: ParticleTest.NonNegativeMass
+16/37 Test #16: ParticleTest.NonNegativeMass ..................................   Passed    0.00 sec
+      Start 17: MetricsTest.KineticEnergySimple
+17/37 Test #17: MetricsTest.KineticEnergySimple ...............................   Passed    0.00 sec
+      Start 18: MetricsTest.PotentialEnergySimple
+18/37 Test #18: MetricsTest.PotentialEnergySimple .............................   Passed    0.00 sec
+      Start 19: MetricsTest.LinearMomentum
+19/37 Test #19: MetricsTest.LinearMomentum ....................................   Passed    0.00 sec
+      Start 20: MetricsTest.CenterOfMass
+20/37 Test #20: MetricsTest.CenterOfMass ......................................   Passed    0.00 sec
+      Start 21: MetricsTest.ParallelConsistency
+21/37 Test #21: MetricsTest.ParallelConsistency ...............................   Passed    0.00 sec
+      Start 22: IntegratorTest.HistorySize
+22/37 Test #22: IntegratorTest.HistorySize ....................................   Passed    0.00 sec
+      Start 23: IntegratorTest.TrajectoryConsistency
+23/37 Test #23: IntegratorTest.TrajectoryConsistency ..........................   Passed    0.00 sec
+      Start 24: IntegratorTest.EnergyRecording
+24/37 Test #24: IntegratorTest.EnergyRecording ................................   Passed    0.00 sec
+      Start 25: CudaBufferTest.RoundTripH2DD2H
+25/37 Test #25: CudaBufferTest.RoundTripH2DD2H ................................   Passed    0.30 sec
+      Start 26: CudaBufferTest.MoveTransfiereLaPropiedad
+26/37 Test #26: CudaBufferTest.MoveTransfiereLaPropiedad ......................   Passed    0.25 sec
+      Start 27: CudaBufferTest.TransferenciasInvalidasLanzan
+27/37 Test #27: CudaBufferTest.TransferenciasInvalidasLanzan ..................   Passed    0.23 sec
+      Start 28: GpuAccelerationsTest.CasoAnaliticoDosCuerpos
+28/37 Test #28: GpuAccelerationsTest.CasoAnaliticoDosCuerpos ..................   Passed    0.25 sec
+      Start 29: GpuAccelerationsTest.ConsistenciaCpuVsGpuSeedFija
+29/37 Test #29: GpuAccelerationsTest.ConsistenciaCpuVsGpuSeedFija .............   Passed    0.25 sec
+      Start 30: GpuAccelerationsTest.BasicaVsSharedCoinciden
+30/37 Test #30: GpuAccelerationsTest.BasicaVsSharedCoinciden ..................   Passed    0.27 sec
+      Start 31: GpuAccelerationsTest.IndependienteDelBlockSize
+31/37 Test #31: GpuAccelerationsTest.IndependienteDelBlockSize ................   Passed    0.23 sec
+      Start 32: GpuAccelerationsTest.ParametrosInvalidosLanzan
+32/37 Test #32: GpuAccelerationsTest.ParametrosInvalidosLanzan ................   Passed    0.25 sec
+      Start 33: GpuIntegrationTest.StepEulerGpuCoincideConSerial
+33/37 Test #33: GpuIntegrationTest.StepEulerGpuCoincideConSerial ..............   Passed    0.26 sec
+      Start 34: GpuEnergyTest.ReduccionYAtomicCoincidenConCpu
+34/37 Test #34: GpuEnergyTest.ReduccionYAtomicCoincidenConCpu .................   Passed    0.25 sec
+      Start 35: GpuEnergyTest.MetodoInvalidoLanzaExcepcion
+35/37 Test #35: GpuEnergyTest.MetodoInvalidoLanzaExcepcion ....................   Passed    0.00 sec
+      Start 36: GpuEnergyTest.UnCuerpoTienePotencialCero
+36/37 Test #36: GpuEnergyTest.UnCuerpoTienePotencialCero ......................   Passed    0.25 sec
+      Start 37: test_benchmark
+37/37 Test #37: test_benchmark ................................................   Passed   51.69 sec
+
+100% tests passed, 0 tests failed out of 37
+
+Total Test time (real) =  54.55 sec
+
+===== BENCHMARKS =====
+=== INICIANDO BENCHMARKS N-BODY ===
+Parámetros:
+  N (partículas): 1000
+  Repeticiones: 10
+  Seed: 42
+OpenMP:
+  omp_get_max_threads(): 24
+  omp_get_num_procs(): 24
+
+[Benchmark] N=1000  rep=10
+[Benchmark] 1. Schedules...
+[Benchmark] 2. Sincronizacion...
+[Benchmark] 3. Clausulas de datos...
+[Benchmark] 4. Sincronizacion avanzada...
+[Benchmark] 5. Escalabilidad...
+[Benchmark] f (Amdahl) = 0.0202363 (threads 1..24)
+[Benchmark] 6. Fraccion serial (instrumentacion explicita)...
+  p=1  f_measured=0.000460446  f_amdahl=0.0202363  overhead=0.0392963 s
+  p=2  f_measured=0.000448799  f_amdahl=0.0202363  overhead=0.0395466 s
+  p=3  f_measured=0.00045216  f_amdahl=0.0202363  overhead=0.0391525 s
+  p=4  f_measured=0.000452582  f_amdahl=0.0202363  overhead=0.0392267 s
+  p=5  f_measured=0.000460665  f_amdahl=0.0202363  overhead=0.0391787 s
+  p=6  f_measured=0.000454639  f_amdahl=0.0202363  overhead=0.039246 s
+  p=7  f_measured=0.000442561  f_amdahl=0.0202363  overhead=0.039315 s
+  p=8  f_measured=0.000480062  f_amdahl=0.0202363  overhead=0.0392051 s
+  p=9  f_measured=0.000451457  f_amdahl=0.0202363  overhead=0.0391883 s
+  p=10  f_measured=0.000450892  f_amdahl=0.0202363  overhead=0.0391418 s
+  p=11  f_measured=0.000452128  f_amdahl=0.0202363  overhead=0.0392406 s
+  p=12  f_measured=0.000451257  f_amdahl=0.0202363  overhead=0.0410013 s
+  p=13  f_measured=0.00045348  f_amdahl=0.0202363  overhead=0.0402468 s
+  p=14  f_measured=0.000452701  f_amdahl=0.0202363  overhead=0.0392862 s
+  p=15  f_measured=0.000449681  f_amdahl=0.0202363  overhead=0.0392584 s
+  p=16  f_measured=0.000469334  f_amdahl=0.0202363  overhead=0.0392046 s
+  p=17  f_measured=0.000451094  f_amdahl=0.0202363  overhead=0.0392538 s
+  p=18  f_measured=0.000447664  f_amdahl=0.0202363  overhead=0.0392397 s
+  p=19  f_measured=0.00045309  f_amdahl=0.0202363  overhead=0.0391917 s
+  p=20  f_measured=0.000453019  f_amdahl=0.0202363  overhead=0.0390938 s
+  p=21  f_measured=0.000452452  f_amdahl=0.0202363  overhead=0.039162 s
+  p=22  f_measured=0.000451389  f_amdahl=0.0202363  overhead=0.0428132 s
+  p=23  f_measured=0.000450723  f_amdahl=0.0202363  overhead=0.0392495 s
+  p=24  f_measured=0.000396754  f_amdahl=0.0202363  overhead=0.0392391 s
+[Benchmark] benchmark_results guardados en benchmark_results.dat
+[Benchmark] scaling_analysis guardado en scaling_analysis.dat
+[Benchmark] Finalizado.
+[Benchmark] CUDA: matriz N, variante y blockDim.x...
+  N = 256
+    variant=0 block=64 kernel=0.00010244 s e2e/step=0.000135063 s
+    variant=0 block=128 kernel=0.00010152 s e2e/step=0.000125712 s
+    variant=0 block=256 kernel=6.87218e-05 s e2e/step=9.7854e-05 s
+    variant=0 block=512 kernel=6.85895e-05 s e2e/step=9.79224e-05 s
+    variant=0 block=1024 kernel=6.8571e-05 s e2e/step=9.78046e-05 s
+    variant=1 block=64 kernel=6.14644e-05 s e2e/step=9.02355e-05 s
+    variant=1 block=128 kernel=6.03613e-05 s e2e/step=8.93296e-05 s
+    variant=1 block=256 kernel=6.65237e-05 s e2e/step=9.57049e-05 s
+    variant=1 block=512 kernel=7.57638e-05 s e2e/step=0.000104863 s
+    variant=1 block=1024 kernel=9.36703e-05 s e2e/step=0.000124591 s
+  N = 512
+    variant=0 block=64 kernel=0.000195044 s e2e/step=0.000215404 s
+    variant=0 block=128 kernel=0.000125862 s e2e/step=0.000164086 s
+    variant=0 block=256 kernel=0.000136213 s e2e/step=0.000174295 s
+    variant=0 block=512 kernel=0.000170792 s e2e/step=0.000209371 s
+    variant=0 block=1024 kernel=0.000170906 s e2e/step=0.000209281 s
+    variant=1 block=64 kernel=0.000115868 s e2e/step=0.000154169 s
+    variant=1 block=128 kernel=0.000114595 s e2e/step=0.000152753 s
+    variant=1 block=256 kernel=0.000127318 s e2e/step=0.000165636 s
+    variant=1 block=512 kernel=0.000167106 s e2e/step=0.000205666 s
+    variant=1 block=1024 kernel=0.00018703 s e2e/step=0.000225434 s
+  N = 1024
+    variant=0 block=64 kernel=0.000380688 s e2e/step=0.000356133 s
+    variant=0 block=128 kernel=0.000247387 s e2e/step=0.000300468 s
+    variant=0 block=256 kernel=0.000264911 s e2e/step=0.000317858 s
+    variant=0 block=512 kernel=0.000343785 s e2e/step=0.000397147 s
+    variant=0 block=1024 kernel=0.000620019 s e2e/step=0.000673153 s
+    variant=1 block=64 kernel=0.000223228 s e2e/step=0.000276159 s
+    variant=1 block=128 kernel=0.000220492 s e2e/step=0.00027362 s
+    variant=1 block=256 kernel=0.000248425 s e2e/step=0.000301505 s
+    variant=1 block=512 kernel=0.000326782 s e2e/step=0.000379832 s
+    variant=1 block=1024 kernel=0.000619712 s e2e/step=0.000673009 s
+  N = 2000
+    variant=0 block=64 kernel=0.000729618 s e2e/step=0.000610874 s
+    variant=0 block=128 kernel=0.000480607 s e2e/step=0.000562092 s
+    variant=0 block=256 kernel=0.000521714 s e2e/step=0.000603033 s
+    variant=0 block=512 kernel=0.000668383 s e2e/step=0.000749542 s
+    variant=0 block=1024 kernel=0.00119145 s e2e/step=0.00127293 s
+    variant=1 block=64 kernel=0.000429464 s e2e/step=0.000510971 s
+    variant=1 block=128 kernel=0.000424351 s e2e/step=0.000505429 s
+    variant=1 block=256 kernel=0.000481836 s e2e/step=0.000563378 s
+    variant=1 block=512 kernel=0.000635175 s e2e/step=0.000717218 s
+    variant=1 block=1024 kernel=0.0012079 s e2e/step=0.00128915 s
+[Benchmark] blockdim_study.dat generado.
+[Benchmark] combinaciones validas: 40
+[Benchmark] combinaciones omitidas: 0
+[Visualizer] Generando salidas físicas...
+[Visualizer] N=1000  steps=500  sample_every=10
+[Visualizer] Archivos generados:
+  - snapshots.dat
+  - energy_timeseries.dat
+[Visualizer] Finalizado.
+
+=== EJECUCIÓN COMPLETADA ===
+Archivos generados:
+  - benchmark_results.dat
+  - scaling_analysis.dat
+  - snapshots.dat
+  - energy_timeseries.dat
+  - blockdim_study.dat
+
+===== COPIA DE RESULTADOS =====
+Combinaciones CUDA registradas: 40
+
+===== ARCHIVOS GENERADOS =====
+total 1,8M
+-rw-r--r-- 1 dmolina sdp12026 2,1K jul 30 05:55 benchmark_results.dat
+-rw-r--r-- 1 dmolina sdp12026 9,7K jul 30 05:55 blockdim_study.dat
+-rw-r--r-- 1 dmolina sdp12026  862 jul 30 05:48 build_cuda.log
+-rw-r--r-- 1 dmolina sdp12026  779 jul 30 05:48 cluster_environment.log
+-rw-r--r-- 1 dmolina sdp12026  21K jul 30 05:55 cluster_run-1309619.log
+-rw-r--r-- 1 dmolina sdp12026 4,0K jul 30 05:48 cluster_run.log
+-rw-r--r-- 1 dmolina sdp12026  159 jul 30 05:48 configure_cuda.log
+-rw-r--r-- 1 dmolina sdp12026 2,2K jul 30 05:48 cuda_tests_execution.log
+-rw-r--r-- 1 dmolina sdp12026 2,0K jul 30 05:48 cuda_tests_list.log
+-rw-r--r-- 1 dmolina sdp12026 5,5K jul 30 05:55 energy_timeseries.dat
+-rw-r--r-- 1 dmolina sdp12026 3,5K jul 30 05:55 scaling_analysis.dat
+-rw-r--r-- 1 dmolina sdp12026 1,8M jul 30 05:55 snapshots.dat
+
+===== FIN =====
+jue 30 jul 2026 05:55:28 -04

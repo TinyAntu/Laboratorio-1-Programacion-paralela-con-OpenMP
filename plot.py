@@ -115,7 +115,7 @@ def select_body_ids(df, max_bodies=12):
     idx = np.linspace(0, len(ids) - 1, max_bodies, dtype=int)
     return ids[idx]
 
-def plot_trajectories(df, out='5_nbody_trajectories.png', max_bodies=12):
+def plot_trajectories(df, out='nbody_trajectories.png', max_bodies=12):
     required = {'Step', 'ID', 'X', 'Y', 'Mass'}
     if not required.issubset(df.columns): return
     sel_ids = select_body_ids(df, max_bodies=max_bodies)
@@ -127,7 +127,7 @@ def plot_trajectories(df, out='5_nbody_trajectories.png', max_bodies=12):
         if not sub.empty:
             ax.scatter(sub.iloc[0]['X'], sub.iloc[0]['Y'], marker='s', s=28, color=color, edgecolor='black', alpha=0.9)
             ax.scatter(sub.iloc[-1]['X'], sub.iloc[-1]['Y'], marker='x', s=40, color=color, linewidth=1.2, alpha=0.95)
-    ax.set_title('6. Trayectorias X-Y de un subconjunto de cuerpos')
+    ax.set_title('Trayectorias X-Y de un subconjunto de cuerpos')
     ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.grid(alpha=0.3); ax.axis('equal'); ax.legend(fontsize=8, ncol=2)
     plt.tight_layout(); plt.savefig(out, dpi=200, bbox_inches='tight'); plt.close()
     print(f"[ok] {out}")
@@ -177,36 +177,111 @@ def plot_energy_timeseries(df, out='5_nbody_energy.png'):
 # ==========================================
 def plot_gpu_benchmarks(filename='blockdim_study.dat'):
     if not os.path.exists(filename): return
-    cols = ['N', 'Variant', 'BlockSize', 'KMean', 'KStd', 'E2EMean', 'E2EStd', 'CMean', 'CStd']
-    try: df = pd.read_csv(filename, sep=r'\s+', comment='#', names=cols)
-    except: return
 
-    bs_avail = df['BlockSize'].unique()
-    if len(bs_avail) == 0: return
-    target_bs = 256 if 256 in bs_avail else bs_avail[0]
-    n_max = df['N'].max()
-    
-    df_b256 = df[df['BlockSize'] == target_bs]
-    df_bas = df_b256[df_b256['Variant'] == 0].sort_values('N')
-    df_shr = df_b256[df_b256['Variant'] == 1].sort_values('N')
+    # Formato actual de blockdim_study.dat (Lab 2).
+    cols = [
+        'N', 'Variant', 'BlockSize', 'Steps', 'Repetitions',
+        'CpuKernelMean_s', 'CpuKernelStdDev_s',
+        'CpuStepMean_s', 'CpuStepStdDev_s',
+        'KernelOnlyMean_s', 'KernelOnlyStdDev_s',
+        'EndToEndMean_s', 'EndToEndStdDev_s',
+        'KernelSpeedup', 'KernelSpeedupErr',
+        'EndToEndSpeedup', 'EndToEndSpeedupErr',
+        'SerialFraction'
+    ]
+
+    try:
+        df = pd.read_csv(
+            filename,
+            sep=r'\s+',
+            comment='#',
+            names=cols,
+            engine='python'
+        )
+    except Exception as e:
+        print(f"[!] Error leyendo {filename}: {e}")
+        return
+
+    if df.empty:
+        print(f"[!] {filename} no contiene datos")
+        return
+
+    # Comprobaciones mínimas de la matriz exigida por la pauta.
+    expected_n = {256, 512, 1024, 2000}
+    expected_variants = {0, 1}
+    expected_blocks = {64, 128, 256, 512, 1024}
+
+    if set(df['N'].unique()) != expected_n:
+        print(f"[!] Valores de N inesperados: {sorted(df['N'].unique())}")
+    if set(df['Variant'].unique()) != expected_variants:
+        print(f"[!] Variantes inesperadas: {sorted(df['Variant'].unique())}")
+    if set(df['BlockSize'].unique()) != expected_blocks:
+        print(f"[!] blockDim.x inesperados: {sorted(df['BlockSize'].unique())}")
+    if len(df) != 40:
+        print(f"[!] Se esperaban 40 combinaciones y se encontraron {len(df)}")
+    if df['Steps'].min() < 100:
+        print(f"[!] La pauta exige al menos 100 pasos; mínimo encontrado: {df['Steps'].min()}")
+    if df['Repetitions'].min() < 10:
+        print(f"[!] La pauta exige al menos 10 repeticiones; mínimo encontrado: {df['Repetitions'].min()}")
+
+    bs_avail = sorted(df['BlockSize'].unique())
+    if not bs_avail: return
+
+    # Se usa un único blockDim para comparar N. Se selecciona el mejor valor
+    # promedio de la variante shared, manteniendo una comparación homogénea.
+    shared_all = df[df['Variant'] == 1]
+    if not shared_all.empty:
+        target_bs = int(
+            shared_all.groupby('BlockSize')['EndToEndMean_s']
+            .mean()
+            .idxmin()
+        )
+    else:
+        target_bs = 256 if 256 in bs_avail else int(bs_avail[0])
+
+    n_max = int(df['N'].max())
+
+    df_target = df[df['BlockSize'] == target_bs]
+    df_bas = df_target[df_target['Variant'] == 0].sort_values('N')
+    df_shr = df_target[df_target['Variant'] == 1].sort_values('N')
+    n_ticks = sorted(df_target['N'].unique())
+
+    print(
+        f"[ok] {filename}: {len(df)} filas, "
+        f"blockDim seleccionado={target_bs}"
+    )
 
     # Grafico 1: Speedup vs N
     plt.figure(figsize=(8, 5))
     if not df_bas.empty:
-        sp_bas = df_bas['CMean'] / df_bas['E2EMean']
-        err_bas = sp_bas * np.sqrt((df_bas['CStd']/df_bas['CMean'])**2 + (df_bas['E2EStd']/df_bas['E2EMean'])**2)
-        plt.errorbar(df_bas['N'], sp_bas, yerr=err_bas, fmt='-o', capsize=5, label='Básica (E2E)')
+        plt.errorbar(
+            df_bas['N'],
+            df_bas['EndToEndSpeedup'],
+            yerr=df_bas['EndToEndSpeedupErr'],
+            fmt='-o',
+            capsize=5,
+            label='Básica (end-to-end)'
+        )
     if not df_shr.empty:
-        sp_shr = df_shr['CMean'] / df_shr['E2EMean']
-        err_shr = sp_shr * np.sqrt((df_shr['CStd']/df_shr['CMean'])**2 + (df_shr['E2EStd']/df_shr['E2EMean'])**2)
-        plt.errorbar(df_shr['N'], sp_shr, yerr=err_shr, fmt='-s', capsize=5, label='Shared Memory (E2E)')
-    plt.axhline(1.0, color='red', ls='--', label='CPU Serial (1.0x)')
+        plt.errorbar(
+            df_shr['N'],
+            df_shr['EndToEndSpeedup'],
+            yerr=df_shr['EndToEndSpeedupErr'],
+            fmt='-s',
+            capsize=5,
+            label='Shared memory (end-to-end)'
+        )
+    plt.axhline(1.0, color='red', ls='--', label='CPU serial (1.0x)')
     plt.xscale('log', base=2)
-    plt.xticks(df_b256['N'].unique(), labels=[str(n) for n in df_b256['N'].unique()])
+    plt.xticks(n_ticks, labels=[str(n) for n in n_ticks])
     plt.title(f'1. Speedup GPU vs. CPU frente a N (blockDim={target_bs})')
-    plt.xlabel('Número de cuerpos (N)'); plt.ylabel('Speedup')
-    plt.grid(True, ls='--', alpha=0.5); plt.legend(); plt.tight_layout()
-    plt.savefig('1_gpu_speedup_vs_n.png', dpi=200); plt.close()
+    plt.xlabel('Número de cuerpos (N)')
+    plt.ylabel('Speedup')
+    plt.grid(True, ls='--', alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('1_gpu_speedup_vs_n.png', dpi=200)
+    plt.close()
     print("[ok] 1_gpu_speedup_vs_n.png")
 
     # Grafico 2: Kernel vs End-to-End
@@ -214,67 +289,186 @@ def plot_gpu_benchmarks(filename='blockdim_study.dat'):
         plt.figure(figsize=(8, 5))
         x = np.arange(len(df_shr))
         width = 0.35
-        plt.bar(x - width/2, df_shr['E2EMean'], width, label='End-to-End', color='#2ca02c')
-        plt.bar(x + width/2, df_shr['KMean'], width, label='Kernel-Only', color='#ff7f0e')
-        transfers = df_shr['E2EMean'] - df_shr['KMean']
-        pct_transfers = (np.maximum(transfers, 0) / df_shr['E2EMean']) * 100
-        for i, val in enumerate(pct_transfers):
-            plt.text(i - width/2, df_shr['E2EMean'].iloc[i]*1.02, f"{val:.1f}%", ha='center', fontsize=8, fontweight='bold')
+        plt.bar(
+            x - width/2,
+            df_shr['EndToEndMean_s'],
+            width,
+            label='End-to-end',
+            color='#2ca02c'
+        )
+        plt.bar(
+            x + width/2,
+            df_shr['KernelOnlyMean_s'],
+            width,
+            label='Kernel-only',
+            color='#ff7f0e'
+        )
+
+        non_kernel = np.maximum(
+            df_shr['EndToEndMean_s'] - df_shr['KernelOnlyMean_s'],
+            0
+        )
+        pct_non_kernel = (
+            non_kernel / df_shr['EndToEndMean_s']
+        ) * 100
+
+        for i, val in enumerate(pct_non_kernel):
+            plt.text(
+                i - width/2,
+                df_shr['EndToEndMean_s'].iloc[i] * 1.02,
+                f"{val:.1f}%",
+                ha='center',
+                fontsize=8,
+                fontweight='bold'
+            )
+
         plt.xticks(x, df_shr['N'])
-        plt.title('2. Tiempo kernel-only vs. end-to-end (Impacto Transferencias)')
-        plt.xlabel('Número de cuerpos (N)'); plt.ylabel('Tiempo (s)')
-        plt.legend(); plt.grid(axis='y', ls='--', alpha=0.5); plt.tight_layout()
-        plt.savefig('2_gpu_kernel_vs_e2e.png', dpi=200); plt.close()
+        plt.title(
+            '2. Tiempo kernel-only vs. end-to-end '
+            '(copias y trabajo host)'
+        )
+        plt.xlabel('Número de cuerpos (N)')
+        plt.ylabel('Tiempo medio por paso (s)')
+        plt.legend()
+        plt.grid(axis='y', ls='--', alpha=0.5)
+        plt.tight_layout()
+        plt.savefig('2_gpu_kernel_vs_e2e.png', dpi=200)
+        plt.close()
         print("[ok] 2_gpu_kernel_vs_e2e.png")
 
     # Grafico 3: Tiempo frente a blockDim.x
     df_nmax = df[df['N'] == n_max]
     if not df_nmax.empty:
         plt.figure(figsize=(8, 5))
-        for var, lbl, col in [(0,'Básica','C0'), (1,'Shared','C1')]:
+        for var, lbl, col in [(0, 'Básica', 'C0'), (1, 'Shared', 'C1')]:
             sub = df_nmax[df_nmax['Variant'] == var].sort_values('BlockSize')
             if not sub.empty:
-                plt.errorbar(sub['BlockSize'], sub['E2EMean'], yerr=sub['E2EStd'], fmt='-o', capsize=5, color=col, label=f'{lbl} (E2E)')
-                plt.plot(sub['BlockSize'], sub['KMean'], '--s', color=col, alpha=0.7, label=f'{lbl} (Kernel)')
+                plt.errorbar(
+                    sub['BlockSize'],
+                    sub['EndToEndMean_s'],
+                    yerr=sub['EndToEndStdDev_s'],
+                    fmt='-o',
+                    capsize=5,
+                    color=col,
+                    label=f'{lbl} (end-to-end)'
+                )
+                plt.errorbar(
+                    sub['BlockSize'],
+                    sub['KernelOnlyMean_s'],
+                    yerr=sub['KernelOnlyStdDev_s'],
+                    fmt='--s',
+                    capsize=5,
+                    color=col,
+                    alpha=0.7,
+                    label=f'{lbl} (kernel-only)'
+                )
         plt.xscale('log', base=2)
-        plt.xticks([64, 128, 256, 512, 1024], [64, 128, 256, 512, 1024])
+        plt.xticks(sorted(expected_blocks), sorted(expected_blocks))
         plt.title(f'3. Tiempo frente a blockDim.x (N={n_max})')
-        plt.xlabel('Hilos por bloque (blockDim.x)'); plt.ylabel('Tiempo de ejecución (s)')
-        plt.grid(True, ls='--', alpha=0.5); plt.legend(); plt.tight_layout()
-        plt.savefig('3_gpu_time_vs_blockdim.png', dpi=200); plt.close()
+        plt.xlabel('Hilos por bloque (blockDim.x)')
+        plt.ylabel('Tiempo medio por paso (s)')
+        plt.grid(True, ls='--', alpha=0.5)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('3_gpu_time_vs_blockdim.png', dpi=200)
+        plt.close()
         print("[ok] 3_gpu_time_vs_blockdim.png")
 
-    # Grafico 4: Curva de Amdahl
+    # Grafico 4: Curva de Amdahl, predicción frente a medición
     if not df_shr.empty:
         plt.figure(figsize=(8, 5))
-        transfers = np.maximum(df_shr['E2EMean'] - df_shr['KMean'], 0)
-        f_measured = transfers / df_shr['CMean']
-        s_measured = df_shr['CMean'] / df_shr['E2EMean']
-        s_amdahl_limit = 1.0 / f_measured.replace(0, np.nan)
-        s_kernel_only = df_shr['CMean'] / df_shr['KMean']
 
-        plt.plot(df_shr['N'], s_measured, '-o', label='Speedup Medido (E2E)', color='C0')
-        plt.plot(df_shr['N'], s_kernel_only, ':s', label='Speedup Kernel Puro', color='C1')
-        plt.plot(df_shr['N'], s_amdahl_limit, '--^', label='Límite Amdahl (1/f)', color='C2')
-        plt.xscale('log', base=2); plt.yscale('log', base=10)
+        overhead_s = np.maximum(
+            df_shr['EndToEndMean_s'] - df_shr['KernelOnlyMean_s'],
+            0
+        )
+        f_effective = np.clip(
+            overhead_s / df_shr['CpuStepMean_s'],
+            0.0,
+            1.0
+        )
+
+        # Amdahl con aceleración finita del kernel:
+        # S = 1 / (f + (1-f)/S_kernel).
+        s_kernel = df_shr['KernelSpeedup']
+        s_amdahl = 1.0 / (
+            f_effective + (1.0 - f_effective) / s_kernel
+        )
+        s_measured = df_shr['EndToEndSpeedup']
+
+        plt.errorbar(
+            df_shr['N'],
+            s_measured,
+            yerr=df_shr['EndToEndSpeedupErr'],
+            fmt='-o',
+            capsize=5,
+            label='Speedup medido (end-to-end)',
+            color='C0'
+        )
+        plt.plot(
+            df_shr['N'],
+            s_amdahl,
+            '--^',
+            label='Predicción de Amdahl',
+            color='C2'
+        )
+        plt.plot(
+            df_shr['N'],
+            s_kernel,
+            ':s',
+            label='Speedup kernel-only',
+            color='C1'
+        )
+
+        plt.xscale('log', base=2)
+        plt.yscale('log', base=10)
         plt.xticks(df_shr['N'], labels=[str(n) for n in df_shr['N']])
-        plt.title('4. Curva de Amdahl: Predicción vs Medición')
-        plt.xlabel('Número de cuerpos (N)'); plt.ylabel('Speedup (Log Scale)')
-        plt.grid(True, which='both', ls='--', alpha=0.5); plt.legend(); plt.tight_layout()
-        plt.savefig('4_gpu_amdahl_curve.png', dpi=200); plt.close()
+        plt.title(
+            f'4. Curva de Amdahl: predicción vs. medición '
+            f'(shared, blockDim={target_bs})'
+        )
+        plt.xlabel('Número de cuerpos (N)')
+        plt.ylabel('Speedup (escala logarítmica)')
+        plt.grid(True, which='both', ls='--', alpha=0.5)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('4_gpu_amdahl_curve.png', dpi=200)
+        plt.close()
         print("[ok] 4_gpu_amdahl_curve.png")
 
     # Grafico 6: Basica vs Shared
     if not df_bas.empty and not df_shr.empty:
         plt.figure(figsize=(8, 5))
-        plt.errorbar(df_bas['N'], df_bas['E2EMean'], yerr=df_bas['E2EStd'], fmt='-o', capsize=5, label='Básica')
-        plt.errorbar(df_shr['N'], df_shr['E2EMean'], yerr=df_shr['E2EStd'], fmt='-s', capsize=5, label='Shared Memory')
-        plt.xscale('log', base=2); plt.yscale('log', base=10)
-        plt.xticks(df_b256['N'].unique(), labels=[str(n) for n in df_b256['N'].unique()])
-        plt.title('6. Comparación de Tiempos: Básica vs Shared Memory')
-        plt.xlabel('Número de cuerpos (N)'); plt.ylabel('Tiempo End-to-End (s)')
-        plt.grid(True, which='both', ls='--', alpha=0.5); plt.legend(); plt.tight_layout()
-        plt.savefig('6_gpu_basic_vs_shared.png', dpi=200); plt.close()
+        plt.errorbar(
+            df_bas['N'],
+            df_bas['EndToEndMean_s'],
+            yerr=df_bas['EndToEndStdDev_s'],
+            fmt='-o',
+            capsize=5,
+            label='Básica'
+        )
+        plt.errorbar(
+            df_shr['N'],
+            df_shr['EndToEndMean_s'],
+            yerr=df_shr['EndToEndStdDev_s'],
+            fmt='-s',
+            capsize=5,
+            label='Shared memory'
+        )
+        plt.xscale('log', base=2)
+        plt.yscale('log', base=10)
+        plt.xticks(n_ticks, labels=[str(n) for n in n_ticks])
+        plt.title(
+            f'6. Comparación de tiempos: básica vs. shared '
+            f'(blockDim={target_bs})'
+        )
+        plt.xlabel('Número de cuerpos (N)')
+        plt.ylabel('Tiempo end-to-end por paso (s)')
+        plt.grid(True, which='both', ls='--', alpha=0.5)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('6_gpu_basic_vs_shared.png', dpi=200)
+        plt.close()
         print("[ok] 6_gpu_basic_vs_shared.png")
 
 
