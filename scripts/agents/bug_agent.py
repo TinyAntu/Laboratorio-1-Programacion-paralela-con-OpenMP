@@ -69,7 +69,7 @@ def main():
     auth = Auth.Token(token)
     g = Github(auth=auth)
     repo = g.get_repo(repo_name)
-    carpetas_objetivo = ["include", "src", "test"]
+    carpetas_objetivo = [ "src", "tests"]
     todos_los_archivos = []
     
     for carpeta in carpetas_objetivo:
@@ -79,7 +79,7 @@ def main():
         print("No se encontraron archivos en las carpetas especificadas.")
         return
 
-    extensiones_validas = ('.cpp', '.h', '.cu', '.cuh')
+    extensiones_validas = ('.cu', '.cuh')
     
     for archivo in todos_los_archivos:
         if archivo.name.endswith(extensiones_validas):
