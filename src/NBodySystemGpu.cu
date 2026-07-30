@@ -1,4 +1,4 @@
-    // Implementación GPU de NBodySystem (Lab 2) — Rol 2: host/device y memoria.
+// Implementación GPU de NBodySystem (Lab 2) — Rol 2: host/device y memoria.
 // Este archivo solo se compila cuando CUDA está habilitado, define el estado
 // device (SoA), las transferencias mínimas por paso y conecta los buffers con
 // los kernels del Rol 1 (src/kernels/accelerations.cu).
@@ -75,6 +75,7 @@ void NBodySystem::computeAccelerationsGpu(int variant, int block_size) {
             throw std::invalid_argument(
                 "computeAccelerationsGpu: variant invalido (0=basico, 1=shared)");
     }
+    CUDA_CHECK(cudaGetLastError());
 
     // Orden fijo del enunciado: sincronizar device antes de usar los resultados
     CUDA_CHECK(cudaDeviceSynchronize());
@@ -203,6 +204,7 @@ double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_siz
         default:
             throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
     }
+    CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
     auto t1 = std::chrono::steady_clock::now();
 
@@ -266,6 +268,13 @@ double NBodySystem::computeAccelerationsGpuEndToEnd(
     const int grid_size =
         (n + block_size - 1) / block_size;
 
+    /*
+     * Se sincroniza antes de iniciar el cronómetro para evitar que trabajo
+     * CUDA pendiente de una operación anterior contamine la medición.
+     *
+     * No se lanza un kernel de calentamiento aquí porque las posiciones aún
+     * no han sido copiadas al device para esta medición.
+     */
     CUDA_CHECK(cudaDeviceSynchronize());
 
     const auto t0 =
@@ -316,6 +325,7 @@ double NBodySystem::computeAccelerationsGpuEndToEnd(
                 break;
         }
 
+        CUDA_CHECK(cudaGetLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 
         dev.downloadAccelerations(bodies);
