@@ -53,8 +53,12 @@ public:
     // Control total sobre la variante y el tamaño del bloque CUDA
     void computeAccelerationsGpu(int variant, int block_size);
     
-    // Métodos de cronometraje para benchmarks GPU
-    double computeAccelerationsGpuKernelOnly(int variant, int block_size = 256);
+    // Métodos de cronometraje para benchmarks GPU.
+    // steps: lanzamientos consecutivos a promediar. Debe coincidir con el steps
+    // de computeAccelerationsGpuEndToEnd para que la resta (e2e - kernel) mida
+    // transferencias + trabajo en host y no ruido de muestreo.
+    double computeAccelerationsGpuKernelOnly(int variant, int block_size = 256,
+                                             int steps = 100);
 
     double computeAccelerationsGpuEndToEnd(
         int variant,

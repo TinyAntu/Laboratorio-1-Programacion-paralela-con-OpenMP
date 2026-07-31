@@ -737,11 +737,66 @@ void Benchmark::runAll(int max_threads_override) {
     std::cout << "[Benchmark] Finalizado.\n";
 }
 
+#ifdef NBODY_HAS_CUDA
+void Benchmark::warmUpGpu(int variant, int block_size) const {
+    /*
+     * Se lanza el kernel repetidamente durante un tiempo fijo para que la GPU
+     * suba de frecuencia antes de la primera medicion. Un unico lanzamiento no
+     * basta: a N pequenio dura microsegundos y la GPU sigue en reposo.
+     *
+     * El costo total es despreciable (una llamada por combinacion medida, no
+     * por repeticion) frente a la matriz completa de benchmarks.
+     */
+    static constexpr double kWarmUpSeconds = 0.1;
+
+    NBodySystem* sys = makeSystem();
+
+    /*
+     * runGpuBenchmarks captura las excepciones por combinacion y continua con
+     * la siguiente, asi que un escape aqui filtraria un sistema por cada
+     * combinacion omitida.
+     */
+    try {
+        const auto t0 = std::chrono::steady_clock::now();
+
+        for (;;) {
+            (void)sys->computeAccelerationsGpuKernelOnly(
+                variant,
+                block_size,
+                1
+            );
+
+            const std::chrono::duration<double> elapsed =
+                std::chrono::steady_clock::now() - t0;
+
+            if (elapsed.count() >= kWarmUpSeconds) {
+                break;
+            }
+        }
+    } catch (...) {
+        delete sys;
+        throw;
+    }
+
+    delete sys;
+}
+#endif
+
 TimingResult Benchmark::benchmarkKernelOnly(
     int variant,
-    int block_size
+    int block_size,
+    int steps
 ) {
 #ifdef NBODY_HAS_CUDA
+    if (steps < 1) {
+        throw std::invalid_argument(
+            "benchmarkKernelOnly: steps debe ser >= 1"
+        );
+    }
+
+    // Rampa de reloj de la GPU: una sola vez, fuera del bucle de repeticiones.
+    warmUpGpu(variant, block_size);
+
     std::vector<double> times;
     times.reserve(repetitions);
 
@@ -752,17 +807,25 @@ TimingResult Benchmark::benchmarkKernelOnly(
          * Calentamiento:
          *
          * Inicializa el contexto CUDA, reserva buffers y carga el módulo
-         * antes de registrar la medición real.
+         * antes de registrar la medición real. Basta un lanzamiento.
          */
         (void)sys->computeAccelerationsGpuKernelOnly(
             variant,
-            block_size
+            block_size,
+            1
         );
 
+        /*
+         * Medición: promedio sobre steps lanzamientos, el mismo número que
+         * usa benchmarkEndToEnd. Así ambas columnas del .dat quedan en el
+         * mismo régimen de muestreo y su resta mide transferencias más
+         * trabajo en host en vez de ruido.
+         */
         const double measured_time =
             sys->computeAccelerationsGpuKernelOnly(
                 variant,
-                block_size
+                block_size,
+                steps
             );
 
         times.push_back(measured_time);
@@ -774,6 +837,7 @@ TimingResult Benchmark::benchmarkKernelOnly(
 #else
     (void)variant;
     (void)block_size;
+    (void)steps;
 
     throw std::runtime_error(
         "benchmarkKernelOnly: Compilado sin soporte CUDA"
@@ -793,6 +857,14 @@ TimingResult Benchmark::benchmarkEndToEnd(
         );
     }
 
+    /*
+     * Mismo calentamiento que benchmarkKernelOnly: ambas mediciones deben
+     * partir del mismo estado de reloj para que su resta siga aislando
+     * transferencias mas trabajo en host. Tambien hace correcta esta funcion
+     * cuando se la llama por separado, sin un benchmarkKernelOnly previo.
+     */
+    warmUpGpu(variant, block_size);
+
     std::vector<double> times;
     times.reserve(repetitions);
 
@@ -802,10 +874,12 @@ TimingResult Benchmark::benchmarkEndToEnd(
         /*
          * Calentamiento sin modificar posiciones ni velocidades del host.
          * Además deja preparados el contexto y los buffers CUDA.
+         * Un solo lanzamiento basta: no es una medición.
          */
         (void)sys->computeAccelerationsGpuKernelOnly(
             variant,
-            block_size
+            block_size,
+            1
         );
 
         const double time_per_step =
@@ -831,6 +905,51 @@ TimingResult Benchmark::benchmarkEndToEnd(
         "benchmarkEndToEnd: Compilado sin soporte CUDA"
     );
 #endif
+}
+
+
+TimingResult Benchmark::benchmarkCpuKernelOnly(
+    int steps
+) {
+    if (steps < 1) {
+        throw std::invalid_argument(
+            "benchmarkCpuKernelOnly: steps debe ser >= 1"
+        );
+    }
+
+    std::vector<double> times;
+    times.reserve(repetitions);
+
+    for (int r = 0; r < repetitions; ++r) {
+        NBodySystem* sys = makeSystem();
+
+        const auto t0 =
+            std::chrono::steady_clock::now();
+
+        /*
+         * Se recalculan las aceleraciones sobre las mismas posiciones, sin
+         * integrar. Es el espejo exacto de la medicion kernel-only en GPU, que
+         * tambien relanza el kernel sobre un estado que no cambia.
+         */
+        for (int step = 0; step < steps; ++step) {
+            sys->computeAccelerations();
+        }
+
+        const auto t1 =
+            std::chrono::steady_clock::now();
+
+        const std::chrono::duration<double> elapsed =
+            t1 - t0;
+
+        times.push_back(
+            elapsed.count() /
+            static_cast<double>(steps)
+        );
+
+        delete sys;
+    }
+
+    return computeStats(times);
 }
 
 
@@ -1018,13 +1137,20 @@ void Benchmark::runGpuBenchmarks(
         );
 
         /*
-         * Referencias CPU:
+         * Referencias CPU seriales del Lab 1:
          *
          * cpu_kernel: solamente aceleraciones.
          * cpu_step: aceleraciones + Euler.
+         *
+         * Ambas promedian el mismo numero de pasos que sus contrapartes GPU.
+         * Antes cpu_kernel venia de benchmarkSerial(1), que cronometra una
+         * unica llamada: a N=1024 eso lo inflaba un ~28% y producia el
+         * absurdo CpuStep < CpuKernel, ademas de romper el escalado O(N^2).
+         * Como cpu_kernel es el numerador de KernelSpeedup, ese sesgo se
+         * propagaba a la curva de Amdahl.
          */
         const TimingResult cpu_kernel =
-            current.benchmarkSerial(1);
+            current.benchmarkCpuKernelOnly(steps);
 
         const TimingResult cpu_step =
             current.benchmarkCpuEndToEnd(steps);
@@ -1032,10 +1158,17 @@ void Benchmark::runGpuBenchmarks(
         for (int variant : variants) {
             for (int block_size : block_sizes) {
                 try {
+                    /*
+                     * Se pasa el mismo steps que el end-to-end: ambas
+                     * mediciones deben promediar la misma cantidad de
+                     * lanzamientos para que SerialFraction y la curva de
+                     * Amdahl tengan sentido.
+                     */
                     const TimingResult kernel =
                         current.benchmarkKernelOnly(
                             variant,
-                            block_size
+                            block_size,
+                            steps
                         );
 
                     const TimingResult end_to_end =
