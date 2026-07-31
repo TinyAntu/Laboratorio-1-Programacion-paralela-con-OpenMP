@@ -11,8 +11,11 @@ def read_simple_dat(filename):
     except: return None
 
 def first_existing_file(candidates):
-    for f in candidates:
-        if os.path.exists(f): return f
+    search_dirs = ['.', os.path.expanduser('~/Downloads')]
+    for d in search_dirs:
+        for f in candidates:
+            p = os.path.join(d, f)
+            if os.path.exists(p): return p
     return None
 
 def parse_dat_sections(filename):
@@ -177,9 +180,26 @@ def plot_energy_timeseries(df, out='5_nbody_energy.png'):
 # ==========================================
 def plot_gpu_benchmarks(filename='blockdim_study.dat'):
     if not os.path.exists(filename): return
-    cols = ['N', 'Variant', 'BlockSize', 'KMean', 'KStd', 'E2EMean', 'E2EStd', 'CMean', 'CStd']
-    try: df = pd.read_csv(filename, sep=r'\s+', comment='#', names=cols)
-    except: return
+    try:
+        df = pd.read_csv(filename, sep=r'\s+', comment='#', header=None)
+        if df.shape[1] >= 13:
+            full_cols = ['N', 'Variant', 'BlockSize', 'Steps', 'Repetitions', 
+                         'CpuKernelMean_s', 'CpuKernelStdDev_s', 'CpuStepMean_s', 'CpuStepStdDev_s', 
+                         'KernelOnlyMean_s', 'KernelOnlyStdDev_s', 'EndToEndMean_s', 'EndToEndStdDev_s',
+                         'KernelSpeedup', 'KernelSpeedupErr', 'EndToEndSpeedup', 'EndToEndSpeedupErr', 'SerialFraction']
+            df.columns = full_cols[:df.shape[1]]
+            df['KMean'] = df['KernelOnlyMean_s']
+            df['KStd'] = df['KernelOnlyStdDev_s']
+            df['E2EMean'] = df['EndToEndMean_s']
+            df['E2EStd'] = df['EndToEndStdDev_s']
+            df['CMean'] = df['CpuStepMean_s']
+            df['CStd'] = df['CpuStepStdDev_s']
+        else:
+            cols = ['N', 'Variant', 'BlockSize', 'KMean', 'KStd', 'E2EMean', 'E2EStd', 'CMean', 'CStd']
+            df.columns = cols[:df.shape[1]]
+    except Exception as e:
+        print(f"[err] Error parsing GPU benchmark file {filename}: {e}")
+        return
 
     bs_avail = df['BlockSize'].unique()
     if len(bs_avail) == 0: return
