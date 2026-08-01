@@ -331,6 +331,27 @@ Esta organización favorece accesos coalescentes a memoria global y mejora el re
 
 ---
 
+## 5.6 Metodología de medición (kernel-only vs end-to-end)
+
+Ambas mediciones usan `std::chrono::steady_clock` alrededor de `cudaDeviceSynchronize()`, sin `cudaEvent_t`, tal como exige el enunciado. Ambas promedian el **mismo** número de lanzamientos (`steps`, por defecto 100) y devuelven el tiempo promedio de uno solo. La diferencia está únicamente en qué encierra el cronómetro:
+
+| | H2D | kernel | sync | D2H | Euler en host |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `benchmarkKernelOnly` | fuera del cronómetro | ✔ | ✔ | no se ejecuta | no se ejecuta |
+| `benchmarkEndToEnd` | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+En la medición kernel-only el host no integra, de modo que las posiciones en el dispositivo no cambian entre lanzamientos y no hace falta volver a copiarlas. La sincronización se realiza **en cada iteración**, no una sola vez al final: sin ella los lanzamientos se encolarían y se mediría el *throughput* del kernel en lugar del costo que este aporta realmente a un paso temporal.
+
+Gracias a esta simetría se cumple por construcción la identidad
+
+```
+EndToEndMean_s − KernelOnlyMean_s  =  transferencias H2D/D2H + sincronización + Euler en host
+```
+
+que es la fracción serial mínima exigida para el análisis de la ley de Amdahl. Cronometrar un único lanzamiento en el lado kernel rompía esta identidad: la latencia de lanzamiento y sincronización no se amortizaba, el ruido relativo de esa medición subía a ~48 % (mediana) frente al ~6.5 % del end-to-end, y la resta podía dar valores **negativos**, saturando la fracción serial a cero y degradando la curva de Amdahl. Por eso ambas mediciones deben ejecutarse siempre con el mismo `steps`.
+
+---
+
 ## 6. Consideraciones Técnicas
 
 ### 6.1 Constante gravitacional

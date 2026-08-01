@@ -166,12 +166,23 @@ std::pair<double, double> NBodySystem::computeEnergyGpu(
     }
 }
 
-double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_size) {
+double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_size,
+                                                      int steps) {
     const int n = static_cast<int>(bodies.size());
     if (n == 0) return 0.0;
 
+    // Se valida ANTES de arrancar el cronómetro: lanzar una excepción a mitad
+    // de la región medida dejaría la medición a medio hacer.
+    if (variant != 0 && variant != 1) {
+        throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
+    }
+
     if (block_size <= 0 || block_size > 1024) {
         throw std::invalid_argument("block_size invalido");
+    }
+
+    if (steps < 1) {
+        throw std::invalid_argument("steps debe ser >= 1");
     }
 
     if (gpu_state == nullptr) {
@@ -182,34 +193,49 @@ double NBodySystem::computeAccelerationsGpuKernelOnly(int variant, int block_siz
     if (dev.ensureCapacity(static_cast<std::size_t>(n))) {
         dev.uploadMasses(bodies);
     }
+
+    // El H2D queda FUERA del cronómetro y no se descargan aceleraciones: eso es
+    // lo que hace que esta medición sea de kernel puro. Como el host no integra,
+    // las posiciones en device no cambian entre lanzamientos.
     dev.uploadPositions(bodies);
 
     const int grid_size = (n + block_size - 1) / block_size;
 
     CUDA_CHECK(cudaDeviceSynchronize());
-    auto t0 = std::chrono::steady_clock::now();
-    switch (variant) {
-        case 0:
-            launchAccelerationsBasic(grid_size, block_size, n,
-                                     dev.x(), dev.y(), dev.mass(),
-                                     dev.ax(), dev.ay(),
-                                     softening_eps, G_const);
-            break;
-        case 1:
-            launchAccelerationsShared(grid_size, block_size, n,
-                                      dev.x(), dev.y(), dev.mass(),
-                                      dev.ax(), dev.ay(),
-                                      softening_eps, G_const);
-            break;
-        default:
-            throw std::invalid_argument("variant invalido (0=basico, 1=shared)");
-    }
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto t1 = std::chrono::steady_clock::now();
+    const auto t0 = std::chrono::steady_clock::now();
 
-    std::chrono::duration<double> elapsed = t1 - t0;
-    return elapsed.count();
+    // Se promedian steps lanzamientos, igual que computeAccelerationsGpuEndToEnd.
+    // Cronometrar uno solo dejaba la medición dominada por la latencia de
+    // lanzamiento y sincronización (~48% de ruido relativo), al punto de producir
+    // sobrecargas negativas al restar (e2e - kernel).
+    // El cudaDeviceSynchronize() va por iteración, no una sola vez al final: sin
+    // él los lanzamientos se encolan y se mediría throughput en vez del costo que
+    // el kernel realmente aporta a un paso temporal.
+    for (int step = 0; step < steps; ++step) {
+        switch (variant) {
+            case 0:
+                launchAccelerationsBasic(grid_size, block_size, n,
+                                         dev.x(), dev.y(), dev.mass(),
+                                         dev.ax(), dev.ay(),
+                                         softening_eps, G_const);
+                break;
+            case 1:
+                launchAccelerationsShared(grid_size, block_size, n,
+                                          dev.x(), dev.y(), dev.mass(),
+                                          dev.ax(), dev.ay(),
+                                          softening_eps, G_const);
+                break;
+        }
+        CUDA_CHECK(cudaGetLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
+    }
+
+    const auto t1 = std::chrono::steady_clock::now();
+    const std::chrono::duration<double> elapsed = t1 - t0;
+
+    // Tiempo promedio de un lanzamiento, comparable con el promedio por paso que
+    // devuelve computeAccelerationsGpuEndToEnd.
+    return elapsed.count() / static_cast<double>(steps);
 }
 
 double NBodySystem::computeAccelerationsGpuEndToEnd(

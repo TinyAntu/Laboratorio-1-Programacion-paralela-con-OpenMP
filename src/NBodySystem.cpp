@@ -319,7 +319,8 @@ std::pair<double, double> NBodySystem::computeEnergyGpu(
     );
 }
 
-double NBodySystem::computeAccelerationsGpuKernelOnly(int /*variant*/, int /*block_size*/) {
+double NBodySystem::computeAccelerationsGpuKernelOnly(int /*variant*/, int /*block_size*/,
+                                                      int /*steps*/) {
     throw std::runtime_error(
         "computeAccelerationsGpuKernelOnly: el binario fue compilado sin soporte CUDA "
         "(configure con -DENABLE_CUDA=ON y el CUDA Toolkit instalado)"

@@ -119,10 +119,23 @@ public:
     TimingResult benchmarkParallel(int num_threads);
 
     //METODOS CUDA LAB2
-    TimingResult benchmarkKernelOnly(int variant = 0, int block_size = 256); //tiempo del kernel (sync incluida en la medici ́on host)
+    //tiempo del kernel (sync incluida en la medici ́on host); promedia steps
+    //lanzamientos, igual que benchmarkEndToEnd, para que ambas mediciones sean
+    //comparables y (e2e - kernel) aisle transferencias + trabajo en host.
+    TimingResult benchmarkKernelOnly(int variant = 0, int block_size = 256,
+                                     int steps = 100);
     TimingResult benchmarkEndToEnd(
         int variant = 0,
         int block_size = 256,
+        int steps = 100
+    );
+
+    // Baseline CPU serial del Lab 1, solo aceleraciones. Promedia steps
+    // llamadas: es el espejo de benchmarkKernelOnly, igual que
+    // benchmarkCpuEndToEnd lo es de benchmarkEndToEnd. No se reutiliza
+    // benchmarkSerial porque ese cronometra una unica llamada y lo usa
+    // runScalingAnalysis para los benchmarks OpenMP del Lab 1.
+    TimingResult benchmarkCpuKernelOnly(
         int steps = 100
     );
 
@@ -190,6 +203,16 @@ private:
     double measurePureSerialLoop() const;
 
     double measureOpenMPLoop(int num_threads) const;
+
+#ifdef NBODY_HAS_CUDA
+    // Devuelve la GPU a su frecuencia de trabajo antes de cronometrar.
+    // runGpuBenchmarks ejecuta primero los baselines CPU (segundos de trabajo
+    // en host) y durante ese rato la GPU baja de reloj; la primera
+    // configuracion medida de cada N pagaba la rampa de subida, con hasta 81%
+    // de ruido relativo. Es calentamiento por tiempo, no por numero de
+    // lanzamientos, porque la duracion de un lanzamiento depende de N.
+    void warmUpGpu(int variant, int block_size) const;
+#endif
 };
 
 #endif
