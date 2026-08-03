@@ -565,7 +565,31 @@ Como complemento al pipeline tradicional de integración continua, el proyecto i
 
 Todos los agentes se ejecutan mediante **GitHub Actions**, utilizan la API de GitHub para interactuar con el repositorio y emplean la biblioteca **Google GenAI** para realizar el análisis del contenido.
 
-### 7.1 Agente Revisor de Bugs
+
+### 7.1 Agente Documentador
+
+Este agente analiza automáticamente la documentación del proyecto, actualmente:
+
+- `README.md`
+- `CHANGELOG.md`
+
+Su objetivo es detectar:
+
+- errores ortográficos;
+- problemas de formato;
+- enlaces rotos;
+- documentación incompleta;
+- ausencia de explicaciones técnicas relevantes.
+
+Al igual que el agente de bugs, clasifica los problemas en dos grupos.
+
+Para errores puramente mecánicos genera automáticamente una rama con la documentación corregida y crea un Pull Request.
+
+Cuando identifica deficiencias técnicas que requieren criterio de ingeniería (por ejemplo, falta de documentación sobre el funcionamiento de un kernel CUDA o sobre decisiones de diseño), abre automáticamente un Issue solicitando intervención humana sin modificar el repositorio.
+
+---
+
+### 7.2 Agente Revisor de Bugs
 
 El agente de bugs analiza automáticamente los archivos CUDA (`.cu` y `.cuh`) ubicados en `src/kernels/`.
 
@@ -609,29 +633,6 @@ En su lugar genera automáticamente un **Issue**, describiendo el problema detec
 
 ---
 
-### 7.2 Agente Documentador
-
-Este agente analiza automáticamente la documentación del proyecto, actualmente:
-
-- `README.md`
-- `CHANGELOG.md`
-
-Su objetivo es detectar:
-
-- errores ortográficos;
-- problemas de formato;
-- enlaces rotos;
-- documentación incompleta;
-- ausencia de explicaciones técnicas relevantes.
-
-Al igual que el agente de bugs, clasifica los problemas en dos grupos.
-
-Para errores puramente mecánicos genera automáticamente una rama con la documentación corregida y crea un Pull Request.
-
-Cuando identifica deficiencias técnicas que requieren criterio de ingeniería (por ejemplo, falta de documentación sobre el funcionamiento de un kernel CUDA o sobre decisiones de diseño), abre automáticamente un Issue solicitando intervención humana sin modificar el repositorio.
-
----
-
 ### 7.3 Agente Revisor de Pull Requests
 
 Cada Pull Request abierto hacia la rama principal es analizado automáticamente por un tercer agente especializado.
@@ -660,7 +661,16 @@ Por razones de seguridad, este agente **nunca realiza merges automáticos** haci
 
 ---
 
-### 7.4 Arquitectura del flujo de trabajo
+### 7.4 Tabla de agentes
+
+| Agente | Herramienta | Frecuencia | Crit. Mecánico | Crit. Humano |
+| :--- | :--- | :--- | :--- | :--- | 
+| Documentador. | Gemini-3.6-flash. | Todos los lunes a las 23:20 o de forma manual. | Errores ortográficos o de puntuación y enriquecimiento de látex. | Cuando se necesite explicar aspectos de arquitectura como kernels. |
+| Revisor de bugs. | Gemini-3.6-flash. | Cada día a las 3:30 de la tarde o de forma manual. | Falta algún CUDA_CHECK o errores de lógica básicos. | Errores complejos donde se necesita replantear la lógica. |
+| Revisor de merge request. | Gemini-3.6-flash.| Cada vez que se genera un nuevo Pull Request.|Si los cambios no son sobre APIS o definición de kernels. | Cuando son cambios estructurales complejos. |
+
+
+### 7.5 Arquitectura del flujo de trabajo
 
 El flujo completo implementado por los agentes puede resumirse de la siguiente forma:
 
