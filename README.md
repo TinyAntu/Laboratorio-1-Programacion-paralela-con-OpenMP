@@ -344,9 +344,9 @@ En la medición kernel-only el host no integra, de modo que las posiciones en el
 
 Gracias a esta simetría se cumple por construcción la identidad
 
-```
+
 EndToEndMean_s − KernelOnlyMean_s  =  transferencias H2D/D2H + sincronización + Euler en host
-```
+
 
 que es la fracción serial mínima exigida para el análisis de la ley de Amdahl. Cronometrar un único lanzamiento en el lado kernel rompía esta identidad: la latencia de lanzamiento y sincronización no se amortizaba, el ruido relativo de esa medición subía a ~48 % (mediana) frente al ~6.5 % del end-to-end, y la resta podía dar valores **negativos**, saturando la fracción serial a cero y degradando la curva de Amdahl. Por eso ambas mediciones deben ejecutarse siempre con el mismo `steps`.
 
