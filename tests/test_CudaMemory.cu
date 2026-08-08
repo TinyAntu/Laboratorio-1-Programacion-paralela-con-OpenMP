@@ -58,10 +58,12 @@ bool isCudaDeviceAvailable() {
     const cudaError_t err =
         cudaGetDeviceCount(&deviceCount);
 
-    return (
-        err == cudaSuccess &&
-        deviceCount > 0
-    );
+    if (err != cudaSuccess) {
+        cudaGetLastError();
+        return false;
+    }
+
+    return deviceCount > 0;
 }
 
 } // namespace
