@@ -664,7 +664,7 @@ Por razones de seguridad, este agente **nunca realiza merges automáticos** haci
 ### 7.4 Tabla de agentes
 
 | Agente | Herramienta | Frecuencia | Crit. Mecánico | Crit. Humano |
-| :--- | :--- | :--- | :--- | :--- | 
+| :--- | :--- | :--- | :--- | :--- |
 | Documentador. | Gemini-3.6-flash. | Todos los lunes a las 23:20 o de forma manual. | Errores ortográficos o de puntuación y enriquecimiento de látex. | Cuando se necesite explicar aspectos de arquitectura como kernels. |
 | Revisor de bugs. | Gemini-3.6-flash. | Cada día a las 3:30 de la tarde o de forma manual. | Falta algún CUDA_CHECK o errores de lógica básicos. | Errores complejos donde se necesita replantear la lógica. |
 | Revisor de merge request. | Gemini-3.6-flash.| Cada vez que se genera un nuevo Pull Request.|Si los cambios no son sobre APIS o definición de kernels. | Cuando son cambios estructurales complejos. |
