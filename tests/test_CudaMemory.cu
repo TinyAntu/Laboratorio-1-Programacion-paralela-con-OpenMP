@@ -58,6 +58,10 @@ bool isCudaDeviceAvailable() {
     const cudaError_t err =
         cudaGetDeviceCount(&deviceCount);
 
+    if (err != cudaSuccess) {
+        cudaGetLastError();
+    }
+
     return (
         err == cudaSuccess &&
         deviceCount > 0
