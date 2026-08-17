@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `NBodySystem` ahora es no-copiable y cuenta con destructor propio para el manejo del estado GPU opaco.
 - Ajuste de flags de CMake para MSVC (`/openmp:llvm` para tareas OpenMP del Lab 1, `/utf-8`).
-- Sobrecarga de `computeAccelerationsGpuKernelOnly` y `benchmarkKernelOnly` con parámetro `steps` (100 por defecto) para promediar iteraciones manteniendo compatibilidad con la API
+- Sobrecarga de `computeAccelerationsGpuKernelOnly` y `benchmarkKernelOnly` con parámetro `steps` (100 por defecto) para promediar iteraciones manteniendo compatibilidad con la API.
 - Reconfiguración de los agentes de IA (Documentador y Bugs) ajustando sus alcances y detonantes para optimizar el consumo de tokens (PR #43, commits `eb39963`, `3426296`).
 - Actualización de los flujos de generación de gráficos de rendimiento y análisis de Amdahl, preservando las métricas obtenidas en el Lab 1 (PR #45, commit `67587a1`).
 
@@ -45,51 +45,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Omisión condicional de pruebas de energía CUDA en entornos de CI carentes de GPU física (commit `08df09b`).
   - Correcciones mecánicas automáticas en `src/NBodySystemGpu.cu` y formato en `README.md` generadas por los agentes de IA (commits `c1500f7`, `bc11d9c`, `2f4005c`).
 
-## [1.1.6] - 28-07-2026
+## [1.1.6] - 2026-07-28
 
 ### Changed
 
 - Agente de Bugs ahora revisa todo el código.
 - Se cambió el gatillante del agente documentador.
 
-## [1.1.5] - 17-07-2026
+## [1.1.5] - 2026-07-17
 
 ### Changed
 
 - Cambio de librería de Google AI.
 
-## [1.1.4] - 17-07-2026
+## [1.1.4] - 2026-07-17
 
 ### Changed
 
 - Cambio de requirements para no especificar versionado.
 
-## [1.1.3] - 17-07-2026
+## [1.1.3] - 2026-07-17
 
 ### Changed
 
 - Se cambió la versión de Python para evitar warnings.
 - Se cambió el modelo de IA a latest.
 
-## [1.1.2] - 17-07-2026
+## [1.1.2] - 2026-07-17
 
 ### Fixed
 
 - Error de tipeo dentro del agente MR
 
-## [1.1.1] - 17-07-2026
+## [1.1.1] - 2026-07-17
 
 ### Fixed
 
 - Error de tipeo dentro del agente MR.
 
-## [1.1.0] - 07-07-2026
+## [1.1.0] - 2026-07-07
 
 ### Added
 
 - Agentes de Documentación, Bugs y Merge Request.
 
-## [1.0.0] - 06-07-2026
+## [1.0.0] - 2026-07-06
 
 ### Added
 
