@@ -122,6 +122,7 @@ void launchAccelerationsBasic(int gridDim, int blockDim, int N,
 {
     computeAccelerationsKernel<<<gridDim, blockDim>>>(N, d_x, d_y, d_mass, d_ax, d_ay, eps, G);
     CUDA_CHECK(cudaGetLastError()); // Capturar errores inmediatamente después del lanzamiento
+    CUDA_CHECK(cudaDeviceSynchronize()); // Sincronizar dispositivo con host
 }
 
 void launchAccelerationsShared(int gridDim, int blockDim, int N, 
@@ -132,4 +133,5 @@ void launchAccelerationsShared(int gridDim, int blockDim, int N,
     size_t sharedMemSize = 3 * blockDim * sizeof(double);
     computeAccelerationsKernelShared<<<gridDim, blockDim, sharedMemSize>>>(N, d_x, d_y, d_mass, d_ax, d_ay, eps, G);
     CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaDeviceSynchronize()); // Sincronizar dispositivo con host
 }
